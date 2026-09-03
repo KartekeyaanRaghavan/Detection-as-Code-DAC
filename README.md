@@ -3,10 +3,6 @@
 Detection engineering portfolio: Sigma rules with compiled Defender XDR KQL, analyst notes,
 false positive guidance, response playbooks and validation evidence.
 
-Written by [Kartekeyaan Raghavan](https://www.linkedin.com/in/kartekeyaan-raghavan-985a08190),
-SOC analyst and shift lead on a global Microsoft Defender XDR deployment, now M.Tech Network and
-Information Security at IIT Hyderabad.
-
 Every rule here is built from **public threat intelligence and synthetic telemetry**. No employer,
 customer or tenant data appears anywhere in this repository.
 
