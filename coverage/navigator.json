@@ -1,0 +1,52 @@
+{
+  "name": "detections-as-code coverage",
+  "versions": {
+    "attack": "16",
+    "navigator": "5.1.0",
+    "layer": "4.5"
+  },
+  "domain": "enterprise-attack",
+  "description": "Techniques covered by this repository. Green = a validated detection exists. Amber = partial, or on the roadmap. Everything uncoloured is uncovered, which is most of ATT&CK.",
+  "filters": {
+    "platforms": ["Windows", "Office Suite", "Identity Provider", "SaaS"]
+  },
+  "sorting": 0,
+  "layout": {
+    "layout": "side",
+    "showID": true,
+    "showName": true
+  },
+  "hideDisabled": false,
+  "techniques": [
+    { "techniqueID": "T1114.003", "score": 100, "color": "#2e7d32", "comment": "Mailbox rule forwarding or hiding mail. Validated against fixtures.", "enabled": true },
+    { "techniqueID": "T1564.008", "score": 100, "color": "#2e7d32", "comment": "Covered by the same rule as T1114.003.", "enabled": true },
+    { "techniqueID": "T1204.004", "score": 100, "color": "#2e7d32", "comment": "ClickFix RunMRU write. Validated against fixtures.", "enabled": true },
+    { "techniqueID": "T1219", "score": 100, "color": "#2e7d32", "comment": "RMM from a user writable path. Validated against fixtures.", "enabled": true },
+    { "techniqueID": "T1566.002", "score": 100, "color": "#2e7d32", "comment": "Click through from a non prevalent sender. Validated against fixtures.", "enabled": true },
+    { "techniqueID": "T1656", "score": 100, "color": "#2e7d32", "comment": "Teams help desk impersonation after mail bombing. Validated against fixtures.", "enabled": true },
+    { "techniqueID": "T1585.002", "score": 50, "color": "#f9a825", "comment": "Partial. Detected only via the T1656 correlation, not independently.", "enabled": true },
+    { "techniqueID": "T1078.004", "score": 50, "color": "#f9a825", "comment": "Partial. Post click sign in is an enrichment query, not a deployed rule.", "enabled": true },
+    { "techniqueID": "T1059.001", "score": 50, "color": "#f9a825", "comment": "Partial. Only PowerShell reached through the Run dialog.", "enabled": true },
+    { "techniqueID": "T1105", "score": 50, "color": "#f9a825", "comment": "Partial. Only downloads initiated from a pasted Run command.", "enabled": true },
+    { "techniqueID": "T1555.003", "score": 25, "color": "#f9a825", "comment": "Roadmap: browser credential store access.", "enabled": true },
+    { "techniqueID": "T1003.001", "score": 25, "color": "#f9a825", "comment": "Roadmap: LSASS memory access.", "enabled": true },
+    { "techniqueID": "T1110", "score": 25, "color": "#f9a825", "comment": "Roadmap: failed logon burst then success.", "enabled": true },
+    { "techniqueID": "T1562.001", "score": 25, "color": "#f9a825", "comment": "Roadmap: Defender exclusion or tamper.", "enabled": true },
+    { "techniqueID": "T1053.005", "score": 25, "color": "#f9a825", "comment": "Roadmap: scheduled task persistence.", "enabled": true },
+    { "techniqueID": "T1036.003", "score": 25, "color": "#f9a825", "comment": "Roadmap: renamed system binary.", "enabled": true },
+    { "techniqueID": "T1047", "score": 25, "color": "#f9a825", "comment": "Roadmap: WMI lateral movement.", "enabled": true },
+    { "techniqueID": "T1098.005", "score": 25, "color": "#f9a825", "comment": "Roadmap: MFA method registered after password reset.", "enabled": true },
+    { "techniqueID": "T1486", "score": 25, "color": "#f9a825", "comment": "Roadmap: removable media then mass file modification.", "enabled": true }
+  ],
+  "gradient": {
+    "colors": ["#ffffff", "#2e7d32"],
+    "minValue": 0,
+    "maxValue": 100
+  },
+  "legendItems": [
+    { "label": "Validated detection", "color": "#2e7d32" },
+    { "label": "Partial or roadmap", "color": "#f9a825" }
+  ],
+  "showTacticRowBackground": false,
+  "selectTechniquesAcrossTactics": true
+}

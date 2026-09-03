@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+.DS_Store
+.idea/
+.vscode/
+*.log
+
+# Never commit anything sourced from a real tenant.
+# Fixtures live in tests/fixtures/ and are synthetic by construction.
+*_export.csv
+*_export.json
+raw_telemetry/
+scratch/

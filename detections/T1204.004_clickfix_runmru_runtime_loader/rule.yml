@@ -1,0 +1,78 @@
+title: ClickFix Social Engineering - Command Pasted Into Run Dialog
+id: 8be81fe2-a35e-47aa-a4f1-f7bdeac2fbd0
+status: experimental
+description: |
+  Detects the defining host artefact of the ClickFix social engineering pattern: an interpreter or
+  download command written into the Windows Run dialog history.
+
+  In ClickFix, a lure page tells the user their browser, meeting or document is broken and
+  instructs them to press Win+R, paste a "fix" command, and press Enter. Because the user runs the
+  command themselves, there is no exploit, no macro and no attachment to detect. What there IS,
+  reliably, is a registry write: every command executed through the Run dialog is recorded under
+  HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\RunMRU.
+
+  That registry key is a near-zero-noise detection surface. Ordinary users type "cmd", "notepad"
+  and drive letters into the Run box. They do not type base64 blobs or curl commands.
+references:
+  - https://attack.mitre.org/techniques/T1204/004/
+  - https://attack.mitre.org/techniques/T1059/001/
+  - https://attack.mitre.org/techniques/T1105/
+author: Kartekeyaan Raghavan
+date: 2026/09/03
+tags:
+  - attack.execution
+  - attack.t1204.004
+  - attack.t1059.001
+  - attack.command-and-control
+  - attack.t1105
+logsource:
+  category: registry_set
+  product: windows
+detection:
+  selection_key:
+    TargetObject|contains: '\Software\Microsoft\Windows\CurrentVersion\Explorer\RunMRU\'
+  selection_interpreters:
+    Details|contains:
+      - 'powershell'
+      - 'pwsh'
+      - 'cmd /c'
+      - 'cmd.exe /c'
+      - 'mshta'
+      - 'wscript'
+      - 'cscript'
+      - 'rundll32'
+      - 'regsvr32'
+      - 'msiexec'
+      - 'conhost'
+  selection_download:
+    Details|contains:
+      - 'curl '
+      - 'certutil'
+      - 'bitsadmin'
+      - 'Invoke-WebRequest'
+      - 'iwr '
+      - 'wget '
+      - 'DownloadString'
+      - 'DownloadFile'
+      - 'http://'
+      - 'https://'
+  selection_obfuscation:
+    Details|contains:
+      - '-enc'
+      - '-EncodedCommand'
+      - '-e '
+      - 'FromBase64String'
+      - 'IEX'
+      - 'Invoke-Expression'
+      - '-w hidden'
+      - '-WindowStyle Hidden'
+      - '-ExecutionPolicy Bypass'
+      - '-nop'
+      - '-NoProfile'
+  condition: selection_key and (selection_interpreters or selection_download or selection_obfuscation)
+falsepositives:
+  - Administrators and developers pasting management or build commands into the Run dialog
+  - Software deployment documentation that instructs users to run an msiexec command by hand
+  - IT support walking a user through a fix over the phone, which is the legitimate behaviour
+    ClickFix is impersonating and therefore the hardest FP class to separate
+level: high

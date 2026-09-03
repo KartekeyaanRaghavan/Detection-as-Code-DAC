@@ -1,0 +1,120 @@
+// ClickFix: command pasted into Run dialog, and the signed-runtime loader that follows
+// Platform : Microsoft Defender XDR - Advanced Hunting
+// ATT&CK   : T1204.004 (Malicious Copy and Paste), T1059.001, T1105, T1543.003
+// Author   : Kartekeyaan Raghavan
+//
+// Three queries. Run A for coverage, B for the second stage, C to confirm the chain.
+
+// =====================================================================================
+// A. RunMRU write containing an interpreter, downloader or obfuscation token
+//    This is the highest-fidelity single indicator of ClickFix. Deploy this one.
+// =====================================================================================
+let lookback = 30d;
+let Interpreters = dynamic([
+    "powershell", "pwsh", "cmd /c", "cmd.exe /c", "mshta", "wscript",
+    "cscript", "rundll32", "regsvr32", "msiexec", "conhost", "forfiles"
+]);
+let Downloaders = dynamic([
+    "curl ", "certutil", "bitsadmin", "invoke-webrequest", "iwr ", "wget ",
+    "downloadstring", "downloadfile", "http://", "https://"
+]);
+let Obfuscation = dynamic([
+    "-enc", "-encodedcommand", "frombase64string", "iex", "invoke-expression",
+    "-w hidden", "-windowstyle hidden", "-executionpolicy bypass", "-nop", "-noprofile"
+]);
+DeviceRegistryEvents
+| where Timestamp > ago(lookback)
+| where ActionType == "RegistryValueSet"
+| where RegistryKey has @"\Explorer\RunMRU"
+| extend TypedCommand = tostring(RegistryValueData)
+| extend cmd = tolower(TypedCommand)
+| extend
+    HasInterpreter  = cmd has_any (Interpreters),
+    HasDownloader   = cmd has_any (Downloaders),
+    HasObfuscation  = cmd has_any (Obfuscation)
+| where HasInterpreter or HasDownloader or HasObfuscation
+| extend RiskScore =
+        (iff(HasInterpreter, 40, 0))
+      + (iff(HasDownloader, 30, 0))
+      + (iff(HasObfuscation, 40, 0))
+      + (iff(HasInterpreter and HasDownloader, 20, 0))    // interpreter + remote fetch = the ClickFix shape
+      + (iff(strlen(TypedCommand) > 120, 20, 0))          // pasted, not typed
+      + (iff(cmd matches regex @"[a-z0-9+/]{80,}={0,2}", 30, 0))  // embedded base64 blob
+| extend Severity = case(RiskScore >= 90, "High", RiskScore >= 50, "Medium", "Low")
+| project
+    Timestamp, Severity, RiskScore, DeviceName,
+    Account = InitiatingProcessAccountUpn,
+    TypedCommand,
+    CommandLength = strlen(TypedCommand),
+    HasInterpreter, HasDownloader, HasObfuscation,
+    ReportId, DeviceId
+| order by RiskScore desc, Timestamp desc
+
+
+// =====================================================================================
+// B. Signed script runtime executed as an in-memory loader from a user-writable path
+//
+//    Second stage. Operators increasingly drop a legitimate, signed runtime (deno, bun,
+//    node, python) rather than a custom binary, because the runtime is trusted, has a
+//    valid signature, and executes attacker script entirely in memory. The runtime is
+//    not malware; its parentage and location are what make it suspicious.
+// =====================================================================================
+// let lookback = 30d;
+// let ScriptRuntimes = dynamic(["deno.exe","bun.exe","node.exe","python.exe","pythonw.exe","nw.exe"]);
+// let UserWritable   = dynamic([@"\appdata\", @"\users\public\", @"\programdata\", @"\temp\", @"\downloads\"]);
+// let ScriptHosts    = dynamic(["powershell.exe","pwsh.exe","cmd.exe","wscript.exe","cscript.exe",
+//                               "mshta.exe","msiexec.exe","explorer.exe"]);
+// DeviceProcessEvents
+// | where Timestamp > ago(lookback)
+// | where FileName in~ (ScriptRuntimes)
+// | where tolower(FolderPath) has_any (UserWritable)
+// | where InitiatingProcessFileName in~ (ScriptHosts)
+// | project
+//     Timestamp, DeviceName, AccountName,
+//     Runtime            = FileName,
+//     RuntimePath        = FolderPath,
+//     RuntimeCommandLine = ProcessCommandLine,
+//     Parent             = InitiatingProcessFileName,
+//     ParentCommandLine  = InitiatingProcessCommandLine,
+//     GrandParent        = InitiatingProcessParentFileName,
+//     ReportId
+// | order by Timestamp desc
+
+
+// =====================================================================================
+// C. Chain correlation: RunMRU write followed by second-stage execution on the same host
+//
+//    Use for confirmation and for the incident timeline, not as the deployed rule.
+//    A hit here is a confirmed ClickFix execution, not a lead.
+// =====================================================================================
+// let window = 15m;
+// let runmru =
+//     DeviceRegistryEvents
+//     | where Timestamp > ago(30d)
+//     | where ActionType == "RegistryValueSet" and RegistryKey has @"\Explorer\RunMRU"
+//     | where tolower(tostring(RegistryValueData)) has_any
+//         ("powershell","curl ","mshta","msiexec","-enc","iex","certutil")
+//     | project PasteTime = Timestamp, DeviceId, DeviceName, TypedCommand = tostring(RegistryValueData);
+// let stage2 =
+//     DeviceProcessEvents
+//     | where Timestamp > ago(30d)
+//     | where FileName in~ ("deno.exe","bun.exe","node.exe","powershell.exe","mshta.exe","msiexec.exe","curl.exe")
+//     | project ExecTime = Timestamp, DeviceId, StageProcess = FileName,
+//               StageCommandLine = ProcessCommandLine, Parent = InitiatingProcessFileName;
+// runmru
+// | join kind=inner stage2 on DeviceId
+// | where ExecTime between (PasteTime .. (PasteTime + window))
+// | project PasteTime, ExecTime, DelaySeconds = datetime_diff('second', ExecTime, PasteTime),
+//           DeviceName, TypedCommand, StageProcess, StageCommandLine, Parent
+// | order by PasteTime desc
+
+
+// =====================================================================================
+// D. Coverage check: is RunMRU telemetry actually reaching you?
+//    Run this BEFORE trusting a zero-result from query A. A silent rule and a clean
+//    estate look identical. If this returns nothing, the rule is blind, not passing.
+// =====================================================================================
+// DeviceRegistryEvents
+// | where Timestamp > ago(7d)
+// | where RegistryKey has @"\Explorer\RunMRU"
+// | summarize Writes = count(), Devices = dcount(DeviceId), LastSeen = max(Timestamp)

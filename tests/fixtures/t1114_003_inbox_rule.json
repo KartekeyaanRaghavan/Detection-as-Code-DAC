@@ -1,0 +1,92 @@
+{
+  "rule": "T1114.003_aitm_inbox_rule_exfiltration",
+  "table": "CloudAppEvents",
+  "note": "Synthetic events. All mailboxes, domains and actors are fabricated.",
+  "accepted_domains": ["lab.example", "lab.onmicrosoft.example"],
+  "events": [
+    {
+      "_id": "tp_forward_external_hide",
+      "Timestamp": "2026-09-01T13:22:04Z",
+      "ActionType": "New-InboxRule",
+      "AccountDisplayName": "Alice Adams",
+      "AccountId": "alice@lab.example",
+      "IPAddress": "203.0.113.44",
+      "Parameters": {
+        "Name": ".",
+        "SubjectOrBodyContainsWords": "invoice;payment;remittance",
+        "ForwardTo": "collector@external.invalid",
+        "MoveToFolder": "RSS Feeds",
+        "MarkAsRead": "True",
+        "StopProcessingRules": "True"
+      },
+      "_expected": { "fires": true, "severity": "High", "score": 125 }
+    },
+    {
+      "_id": "tp_forward_external_only",
+      "Timestamp": "2026-09-01T15:10:44Z",
+      "ActionType": "New-InboxRule",
+      "AccountDisplayName": "Bob Brown",
+      "AccountId": "bob@lab.example",
+      "IPAddress": "198.51.100.9",
+      "Parameters": {
+        "Name": "Backup copy",
+        "ForwardTo": "bob.personal@mail.invalid"
+      },
+      "_expected": { "fires": true, "severity": "Medium", "score": 50 }
+    },
+    {
+      "_id": "tp_hide_only_named_dot",
+      "Timestamp": "2026-09-01T16:41:19Z",
+      "ActionType": "Set-InboxRule",
+      "AccountDisplayName": "Carol Chen",
+      "AccountId": "carol@lab.example",
+      "IPAddress": "198.51.100.31",
+      "Parameters": {
+        "Name": ".",
+        "MoveToFolder": "Deleted Items",
+        "DeleteMessage": "True"
+      },
+      "_expected": { "fires": true, "severity": "Low", "score": 45 }
+    },
+    {
+      "_id": "fp_internal_delegate",
+      "Timestamp": "2026-09-01T09:30:00Z",
+      "ActionType": "New-InboxRule",
+      "AccountDisplayName": "Dave Diaz",
+      "AccountId": "dave@lab.example",
+      "IPAddress": "10.10.4.7",
+      "Parameters": {
+        "Name": "Forward to assistant",
+        "ForwardTo": "assistant@lab.example"
+      },
+      "_expected": { "fires": false }
+    },
+    {
+      "_id": "fp_user_newsletter_archive",
+      "Timestamp": "2026-09-01T07:55:12Z",
+      "ActionType": "New-InboxRule",
+      "AccountDisplayName": "Erin Ellis",
+      "AccountId": "erin@lab.example",
+      "IPAddress": "10.10.4.19",
+      "Parameters": {
+        "Name": "Newsletters",
+        "SubjectContainsWords": "newsletter;digest",
+        "MoveToFolder": "Archive"
+      },
+      "_expected": { "fires": true, "severity": "Low", "score": 30 }
+    },
+    {
+      "_id": "fp_migration_tooling",
+      "Timestamp": "2026-09-01T02:00:00Z",
+      "ActionType": "UpdateInboxRules",
+      "AccountDisplayName": "svc-mailmigration",
+      "AccountId": "svc-mailmigration@lab.example",
+      "IPAddress": "10.10.1.2",
+      "Parameters": {
+        "Name": "Journal",
+        "MoveToFolder": "Archive"
+      },
+      "_expected": { "fires": true, "severity": "Low", "score": 30, "suppressed_by": "actor_allowlist" }
+    }
+  ]
+}

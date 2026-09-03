@@ -1,0 +1,53 @@
+title: Mailbox Rule Created To Forward Or Hide Mail After Account Compromise
+id: 1cb0cc62-57ad-4f1a-a98e-9b64cea3db2d
+status: experimental
+description: |
+  Detects creation or modification of a mailbox rule that either forwards or redirects mail to a
+  recipient outside the tenant, or suppresses mail by moving it to a low-visibility folder and
+  marking it read.
+
+  This is the canonical post-compromise action in adversary-in-the-middle (AiTM) phishing and
+  business email compromise. Once the operator holds a stolen session token, the mailbox rule is
+  what converts a one-off session hijack into durable access: it exfiltrates future correspondence
+  and hides the replies that would otherwise alert the victim or their finance counterparties.
+
+  The rule creation is frequently the FIRST alertable event in the chain, because token replay
+  against an already-trusted session often produces no risky sign-in signal at all.
+references:
+  - https://attack.mitre.org/techniques/T1114/003/
+  - https://attack.mitre.org/techniques/T1564/008/
+  - https://learn.microsoft.com/en-us/defender-xdr/advanced-hunting-cloudappevents-table
+author: Kartekeyaan Raghavan
+date: 2026/09/03
+tags:
+  - attack.collection
+  - attack.t1114.003
+  - attack.defense-evasion
+  - attack.t1564.008
+  - attack.persistence
+logsource:
+  product: m365
+  service: exchange
+detection:
+  selection_action:
+    Operation:
+      - 'New-InboxRule'
+      - 'Set-InboxRule'
+      - 'UpdateInboxRules'
+  selection_exfiltration:
+    Parameters|contains:
+      - 'ForwardTo'
+      - 'ForwardAsAttachmentTo'
+      - 'RedirectTo'
+  selection_suppression:
+    Parameters|contains:
+      - 'MoveToFolder'
+      - 'DeleteMessage'
+      - 'MarkAsRead'
+  condition: selection_action and (selection_exfiltration or selection_suppression)
+falsepositives:
+  - Users configuring legitimate forwarding to a delegate or shared mailbox inside the tenant
+  - Mail migration, journaling and archiving tooling that creates rules programmatically
+  - Helpdesk-configured rules during mailbox delegation or an out-of-office handover
+  - Users who genuinely file newsletters into Deleted Items or Archive with a keyword rule
+level: high
