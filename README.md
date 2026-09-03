@@ -1,4 +1,4 @@
-# Detection-as-Code-DAC
+# Detection as Code
 
 Detection engineering portfolio: Sigma rules with compiled Defender XDR KQL, analyst notes,
 false positive guidance, response playbooks and validation evidence.
@@ -47,15 +47,6 @@ Four of the ten chain together into two distinct intrusions. A user clicks a har
 mail bombed and talked into remote access over Teams (T1656 into T1219). The notes cross reference
 each other where that happens.
 
-## Roadmap
-
-| Technique | Detection | Data source |
-|---|---|---|
-| T1036.003 | Renamed system binary execution | `DeviceProcessEvents` |
-| T1047 | WMI used for lateral movement | `DeviceProcessEvents` |
-| T1078.004 | Sign in from an unusual ASN with a legacy auth protocol | `AADSignInEventsBeta` |
-| T1098.005 | MFA method registered immediately after a password reset | `CloudAppEvents` |
-| T1486 | Removable media mount followed by mass file modification | `DeviceFileEvents` |
 
 ## Using these rules
 
@@ -92,14 +83,13 @@ day one volume if deployed without running their baseline query first. Each `not
 
 ## What this repository does not cover
 
-Stated explicitly, because a coverage claim without a gap list is not worth reading:
+Scope and limitations of this portfolio:
 
 - **No macOS or Linux detections.** Everything here is Windows and Microsoft 365.
 - **No network layer detections.** No IDS signatures, no NetFlow, no DNS analytics.
 - **No coverage of Impact tactics.** No ransomware encryption behaviour, no destruction.
 - **Detection only.** No enforcement, no automated containment.
-- **Ten techniques out of ATT&CK Enterprise.** The Navigator layer in `coverage/` shows what
-  that looks like honestly, which is: mostly empty.
+- **Ten techniques out of ATT&CK Enterprise.** The Navigator layer in `coverage/` highlights the specific areas of the matrix covered by this portfolio.
 - **Validation is against synthetic fixtures**, plus lab tenant procedures documented per rule.
   These rules have not been run at production volume in this form, and per rule false positive
   rates in a real estate are unknown until they are.
@@ -110,4 +100,4 @@ Stated explicitly, because a coverage claim without a gap list is not worth read
 
 ## Licence
 
-MIT. Use the rules, change the thresholds, keep the gap lists honest.
+MIT. Use the rules and change the thresholds as needed for your environment.
