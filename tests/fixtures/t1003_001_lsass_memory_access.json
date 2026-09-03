@@ -1,0 +1,90 @@
+{
+  "rule": "T1003.001_lsass_process_memory_access",
+  "table": "DeviceEvents",
+  "note": "Synthetic events for LSASS memory access.",
+  "allowed_accessors": [
+    "msense.exe",
+    "mpcmdrun.exe",
+    "kavfs.exe"
+  ],
+  "events": [
+    {
+      "_id": "tp_unsigned_temp_procdump",
+      "Timestamp": "2026-09-03T10:00:00Z",
+      "DeviceName": "lab-win11-01",
+      "ActionType": "ProcessAccessed",
+      "FileName": "lsass.exe",
+      "InitiatingProcessAccountName": "alice",
+      "InitiatingProcessFileName": "procdump.exe",
+      "InitiatingProcessFolderPath": "C:\\Users\\alice\\AppData\\Local\\Temp\\procdump.exe",
+      "InitiatingProcessSignerType": "None",
+      "_expected": {
+        "fires": true,
+        "severity": "High",
+        "score": 130
+      }
+    },
+    {
+      "_id": "tp_masquerading_taskmgr",
+      "Timestamp": "2026-09-03T10:05:00Z",
+      "DeviceName": "lab-win11-02",
+      "ActionType": "ReadProcessMemoryApiCall",
+      "FileName": "lsass.exe",
+      "InitiatingProcessAccountName": "bob",
+      "InitiatingProcessFileName": "taskmgr.exe",
+      "InitiatingProcessFolderPath": "C:\\Users\\bob\\Downloads\\taskmgr.exe",
+      "InitiatingProcessSignerType": "",
+      "_expected": {
+        "fires": true,
+        "severity": "High",
+        "score": 130
+      }
+    },
+    {
+      "_id": "tp_signed_procdump_user_dir",
+      "Timestamp": "2026-09-03T10:10:00Z",
+      "DeviceName": "lab-win11-03",
+      "ActionType": "OpenProcessApiCall",
+      "FileName": "lsass.exe",
+      "InitiatingProcessAccountName": "carol",
+      "InitiatingProcessFileName": "procdump.exe",
+      "InitiatingProcessFolderPath": "C:\\Users\\carol\\AppData\\Roaming\\procdump.exe",
+      "InitiatingProcessSignerType": "Microsoft",
+      "_expected": {
+        "fires": true,
+        "severity": "High",
+        "score": 100
+      }
+    },
+    {
+      "_id": "fp_system_taskmgr",
+      "Timestamp": "2026-09-03T10:15:00Z",
+      "DeviceName": "lab-win11-04",
+      "ActionType": "ProcessAccessed",
+      "FileName": "lsass.exe",
+      "InitiatingProcessAccountName": "admin",
+      "InitiatingProcessFileName": "taskmgr.exe",
+      "InitiatingProcessFolderPath": "C:\\Windows\\System32\\taskmgr.exe",
+      "InitiatingProcessSignerType": "Microsoft",
+      "_expected": {
+        "fires": true,
+        "severity": "Low",
+        "score": 35
+      }
+    },
+    {
+      "_id": "fp_edr_agent_allowlisted",
+      "Timestamp": "2026-09-03T10:20:00Z",
+      "DeviceName": "lab-win11-05",
+      "ActionType": "OpenProcessApiCall",
+      "FileName": "lsass.exe",
+      "InitiatingProcessAccountName": "system",
+      "InitiatingProcessFileName": "msense.exe",
+      "InitiatingProcessFolderPath": "C:\\Program Files\\Windows Defender Advanced Threat Protection\\MsSense.exe",
+      "InitiatingProcessSignerType": "Microsoft",
+      "_expected": {
+        "fires": false
+      }
+    }
+  ]
+}

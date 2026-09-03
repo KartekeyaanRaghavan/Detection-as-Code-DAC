@@ -338,6 +338,48 @@ def score_browser_credential_theft(event: dict, fixture: dict) -> dict:
     }
 
 
+
+# --------------------------------------------------------------------------------------
+# T1003.001 - LSASS process memory access
+# --------------------------------------------------------------------------------------
+
+def score_lsass_memory_access(event: dict, fixture: dict) -> dict:
+    accessor = str(event.get("InitiatingProcessFileName", "")).lower()
+    if accessor in {c.lower() for c in fixture.get("allowed_accessors", [])}:
+        return {"fires": False}
+        
+    target = str(event.get("FileName", "")).lower()
+    if target not in {"lsass.exe", "lsass"}:
+        return {"fires": False}
+        
+    action_type = str(event.get("ActionType", "")).lower()
+    if action_type not in {"processaccessed", "readprocessmemoryapicall", "openprocessapicall"}:
+        return {"fires": False}
+
+    accessor_path = str(event.get("InitiatingProcessFolderPath", "")).lower()
+    
+    from_user_writable = any(frag in accessor_path for frag in USER_WRITABLE)
+    suspicious_names = {"procdump.exe", "procdump64.exe", "mimikatz.exe", "taskmgr.exe", "rundll32.exe", "powershell.exe", "pwsh.exe", "cmd.exe", "wscript.exe", "cscript.exe", "msbuild.exe", "regsvr32.exe"}
+    has_suspicious_name = accessor in suspicious_names
+    
+    is_system_location = accessor_path.startswith("c:\\windows\\system32\\") or accessor_path.startswith("c:\\windows\\syswow64\\")
+    
+    signer = str(event.get("InitiatingProcessSignerType", ""))
+    unsigned = not signer or signer == "None"
+
+    score = 0
+    score += (40 if from_user_writable else 0)
+    score += (35 if has_suspicious_name else 0)
+    score += (25 if not is_system_location else 0)
+    score += (30 if unsigned else 0)
+
+    return {
+        "fires": True,
+        "score": score,
+        "severity": "High" if score >= 90 else "Medium" if score >= 50 else "Low"
+    }
+
+
 SCORERS = {
     "t1204_004_runmru.json": lambda e, fx: score_runmru(e),
     "t1114_003_inbox_rule.json": lambda e, fx: score_inbox_rule(e, fx.get("accepted_domains", [])),
@@ -345,6 +387,7 @@ SCORERS = {
     "t1656_teams_impersonation.json": score_teams_impersonation,
     "t1566_002_phishing_click.json": score_phishing_click,
     "t1555_003_browser_credential_store.json": score_browser_credential_theft,
+    "t1003_001_lsass_memory_access.json": score_lsass_memory_access,
 }
 
 

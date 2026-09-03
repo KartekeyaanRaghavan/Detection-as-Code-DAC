@@ -34,6 +34,7 @@ PIPELINE = "microsoft_xdr"
 
 # Sigma logsource products the microsoft_xdr pipeline cannot map to a table. See docstring.
 UNMAPPABLE_PRODUCTS = {"m365"}
+UNMAPPABLE_CATEGORIES = {"process_access"}
 
 
 def main() -> int:
@@ -51,9 +52,11 @@ def main() -> int:
         logsource = (yaml.safe_load(path.read_text()) or {}).get("logsource") or {}
         product = str(logsource.get("product", ""))
 
-        if product in UNMAPPABLE_PRODUCTS:
+        category = str(logsource.get("category", ""))
+        if product in UNMAPPABLE_PRODUCTS or category in UNMAPPABLE_CATEGORIES:
             skipped += 1
-            print(f"  skip  {rel}\n          product '{product}' has no {PIPELINE} table mapping; "
+            reason = f"product '{product}'" if product in UNMAPPABLE_PRODUCTS else f"category '{category}'"
+            print(f"  skip  {rel}\n          {reason} has no {PIPELINE} table mapping; "
                   f"detection.kql is hand written")
             continue
 

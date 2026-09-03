@@ -1,0 +1,19 @@
+title: LSASS process memory access
+id: 5f1b53e8-5b4d-45fc-a213-912c96c4a3b8
+status: test
+description: Detects non-system processes attempting to access or read the memory of lsass.exe, often indicative of credential dumping.
+author: Kartekeyaan Raghavan
+date: 2026-09-03
+tags:
+    - attack.credential_access
+    - attack.t1003.001
+logsource:
+    category: process_access
+    product: windows
+detection:
+    selection:
+        TargetImage|endswith: '\lsass.exe'
+    condition: selection
+falsepositives:
+    - Antivirus, EDR, and endpoint management tooling
+level: high
