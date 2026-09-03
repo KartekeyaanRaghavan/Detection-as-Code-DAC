@@ -32,6 +32,7 @@ detections/<TECHNIQUE>_<name>/
 | Technique | Detection | Tactic | Data source | Validated |
 |---|---|---|---|---|
 | [T1003.001](detections/T1003.001_lsass_process_memory_access) | LSASS process memory access | Credential Access | `DeviceEvents` | Fixtures |
+| [T1053.005](detections/T1053.005_scheduled_task_persistence) | Scheduled task persistence | Persistence | `DeviceProcessEvents` | Fixtures |
 | [T1110](detections/T1110_failed_logon_burst) | Failed logon burst followed by success | Credential Access | `DeviceLogonEvents` | Fixtures |
 | [T1114.003](detections/T1114.003_aitm_inbox_rule_exfiltration) | Mailbox rule forwarding or hiding mail after account compromise | Collection, Defense Evasion | `CloudAppEvents` | Fixtures |
 | [T1204.004](detections/T1204.004_clickfix_runmru_runtime_loader) | ClickFix command pasted into the Run dialog | Execution | `DeviceRegistryEvents` | Fixtures |
@@ -41,11 +42,11 @@ detections/<TECHNIQUE>_<name>/
 | [T1566.002](detections/T1566.002_phishing_click_credential_harvest) | Click through to a credential harvesting page from a non prevalent sender | Initial Access | `UrlClickEvents`, `EmailEvents` | Fixtures |
 | [T1656](detections/T1656_teams_impersonation_after_mail_bombing) | External Teams contact to a user who was just mail bombed | Initial Access | `EmailEvents`, `CloudAppEvents` | Fixtures |
 
-Nine of a planned twenty. Two of these nine are correlation rules across two data sources rather
+Ten of a planned twenty. Two of these ten are correlation rules across two data sources rather
 than single table queries, which is deliberate: several of the techniques that matter most have no
 high fidelity single indicator.
 
-Three of the nine chain together into one intrusion. A user clicks a harvesting link
+Three of the ten chain together into one intrusion. A user clicks a harvesting link
 (T1566.002), the operator replays the session and creates a mailbox rule (T1114.003), or a user is
 mail bombed and talked into remote access over Teams (T1656 into T1219). The notes cross reference
 each other where that happens.
@@ -54,7 +55,6 @@ each other where that happens.
 
 | Technique | Detection | Data source |
 |---|---|---|
-| T1053.005 | Scheduled task persistence | `DeviceProcessEvents` |
 | T1036.003 | Renamed system binary execution | `DeviceProcessEvents` |
 | T1047 | WMI used for lateral movement | `DeviceProcessEvents` |
 | T1078.004 | Sign in from an unusual ASN with a legacy auth protocol | `AADSignInEventsBeta` |
@@ -107,7 +107,7 @@ Stated explicitly, because a coverage claim without a gap list is not worth read
 - **No network layer detections.** No IDS signatures, no NetFlow, no DNS analytics.
 - **No coverage of Impact tactics.** No ransomware encryption behaviour, no destruction.
 - **Detection only.** No enforcement, no automated containment.
-- **Nine techniques out of ATT&CK Enterprise.** The Navigator layer in `coverage/` shows what
+- **Ten techniques out of ATT&CK Enterprise.** The Navigator layer in `coverage/` shows what
   that looks like honestly, which is: mostly empty.
 - **Validation is against synthetic fixtures**, plus lab tenant procedures documented per rule.
   These rules have not been run at production volume in this form, and per rule false positive

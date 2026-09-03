@@ -123,9 +123,9 @@
     },
     {
       "techniqueID": "T1053.005",
-      "score": 25,
-      "color": "#f9a825",
-      "comment": "Roadmap: scheduled task persistence.",
+      "score": 100,
+      "color": "#2e7d32",
+      "comment": "Validated: Scheduled task persistence.",
       "enabled": true
     },
     {

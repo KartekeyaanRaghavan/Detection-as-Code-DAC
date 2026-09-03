@@ -456,6 +456,45 @@ def score_defender_evasion(event: dict, fixture: dict) -> dict:
     }
 
 
+
+# --------------------------------------------------------------------------------------
+# T1053.005 - Scheduled task persistence
+# --------------------------------------------------------------------------------------
+
+def score_scheduled_task(event: dict, fixture: dict) -> dict:
+    file_name = str(event.get("FileName", "")).lower()
+    if file_name != "schtasks.exe":
+        return {"fires": False}
+        
+    cmdline = str(event.get("ProcessCommandLine", "")).lower()
+    if not ("/create" in cmdline or "-create" in cmdline):
+        return {"fires": False}
+        
+    parent = str(event.get("InitiatingProcessFileName", "")).lower()
+    if parent in {c.lower() for c in fixture.get("allowed_parents", [])}:
+        return {"fires": False}
+
+    parent_path = str(event.get("InitiatingProcessFolderPath", "")).lower()
+    from_user_writable = any(frag in parent_path for frag in USER_WRITABLE)
+    
+    suspicious_tasks = {"powershell", "pwsh", "cmd.exe", "wscript", "cscript", "regsvr32", "rundll32", "mshta", "bitsadmin", "certutil", "http://", "https://"}
+    calls_suspicious = any(s in cmdline for s in suspicious_tasks)
+    
+    signer = str(event.get("InitiatingProcessSignerType", ""))
+    unsigned = not signer or signer == "None"
+
+    score = 40
+    score += (30 if from_user_writable else 0)
+    score += (40 if calls_suspicious else 0)
+    score += (20 if unsigned else 0)
+
+    return {
+        "fires": True,
+        "score": score,
+        "severity": "High" if score >= 90 else "Medium" if score >= 60 else "Low"
+    }
+
+
 SCORERS = {
     "t1204_004_runmru.json": lambda e, fx: score_runmru(e),
     "t1114_003_inbox_rule.json": lambda e, fx: score_inbox_rule(e, fx.get("accepted_domains", [])),
@@ -466,6 +505,7 @@ SCORERS = {
     "t1003_001_lsass_memory_access.json": score_lsass_memory_access,
     "t1110_failed_logon_burst.json": score_failed_logon_burst,
     "t1562_001_defender_evasion.json": score_defender_evasion,
+    "t1053_005_scheduled_task.json": score_scheduled_task,
 }
 
 
