@@ -7,7 +7,7 @@
 | **Data source** | `UrlClickEvents`, `EmailEvents`, `AADSignInEventsBeta` |
 | **Status** | Validated against fixtures |
 
-## Hypothesis
+## Background & Hypothesis
 
 Phishing delivery alerts are abundant and mostly uninteresting, because the control usually
 holds. The cases worth an analyst's time are the ones where it did not: the mail was delivered,
@@ -30,7 +30,7 @@ The cost is that legitimate first contact also has no history, which is the sour
 the false positives below. That tradeoff is accepted deliberately, and the rule is scoped to
 clicks rather than deliveries specifically to keep the volume manageable.
 
-## Signal weighting
+## How we score this
 
 | Signal | Weight |
 |---|---|
@@ -44,7 +44,7 @@ Clicking within ten minutes scores because urgency is manufactured by the lure. 
 a marketing mail three days later is behaving differently from one who clicks a password expiry
 notice immediately.
 
-## False positives, and the honest ratio
+## Common False Positives, and the honest ratio
 
 This rule is Medium severity, not High, and that is deliberate. It will produce more false
 positives than the other rules in this repository.
@@ -61,7 +61,7 @@ alert population down to a small reviewable set that contains the real incidents
 false positive ratio on ten alerts a day is a good trade; the same ratio on a thousand is not,
 which is why the click condition and the prevalence floor both matter.
 
-## Triage steps
+## Triage Guide
 
 1. Look at the URL and the redirect chain. Where it finally lands answers most of the question,
    and the chain is often more revealing than the initial link.
@@ -74,7 +74,7 @@ which is why the click condition and the prevalence floor both matter.
 6. Ask the user what they entered. Faster and more reliable than inferring it, and the answer
    determines whether this is a credential reset or an incident.
 
-## Response playbook
+## Response / Remediation
 
 1. If a sign in followed the click, revoke sessions and refresh tokens first, then reset the
    password. Order matters, since a reset alone leaves a stolen session cookie valid.

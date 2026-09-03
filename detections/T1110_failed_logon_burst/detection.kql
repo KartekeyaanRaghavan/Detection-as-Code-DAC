@@ -33,10 +33,9 @@ FailedLogons
     SuccessTime = min(SuccessTime) 
     by AccountName, RemoteIP, DeviceName
 | where FailedCount >= BurstThreshold
-| extend RiskScore = 
-        50 
-      + (iff(FailedCount >= 10, 20, 0))
-      + (iff(FailedCount >= 20, 20, 0))
+| extend RiskScore = 50 
+      + iff(FailedCount >= 10, 20, 0)
+      + iff(FailedCount >= 20, 20, 0)
 | extend Severity = case(RiskScore >= 90, "High", RiskScore >= 60, "Medium", "Low")
 | project 
     Timestamp = SuccessTime, Severity, RiskScore, 

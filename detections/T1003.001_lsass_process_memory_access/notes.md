@@ -7,11 +7,11 @@
 | **Data source** | `DeviceEvents` |
 | **Status** | Validated against fixtures |
 
-## Hypothesis
+## Background & Hypothesis
 
 Extracting credential material from Windows usually requires reading the memory of the Local Security Authority Subsystem Service (LSASS). EDR products heavily monitor access to `lsass.exe`. If a non-system, unrecognised, or user-space process requests read access to LSASS, it is highly likely to be credential dumping behaviour.
 
-## Signal weighting
+## How we score this
 
 The baseline risk for an unrecognised process reading LSASS memory is low to medium, as some legacy applications and administrative tools do this legitimately. The score is escalated by several context signals:
 
@@ -20,14 +20,14 @@ The baseline risk for an unrecognised process reading LSASS memory is low to med
 3. **User-writable path (+40):** A process executing from `\AppData\Local\Temp\` or `\Downloads\` and immediately requesting LSASS access is characteristic of commodity malware and hands-on-keyboard post-exploitation.
 4. **Not a system location (+25):** Core Windows processes that interact with LSASS execute from protected directories like `System32`.
 
-## False positives, ranked by how often they occur
+## Common False Positives, ranked by how often they occur
 
 1. **Endpoint Detection and Response (EDR) agents:** They inherently monitor LSASS for the exact behaviour this rule looks for, requiring memory access. These must be allowlisted during the baseline phase.
 2. **Enterprise management and inventory agents:** Tools like SCCM or vulnerability scanners sometimes inspect running processes heavily.
 3. **Task Manager:** `taskmgr.exe` allows a user to right-click and "Create dump file". This is a real dumping technique but also a legitimate troubleshooting action. Context (who ran it, from where) differentiates the two.
 4. **Legacy applications:** Some older software indiscriminately requests `PROCESS_ALL_ACCESS` when querying system state, inadvertently triggering access alarms on LSASS.
 
-## Triage steps
+## Triage Guide
 
 1. Review the `AccessorPath` and `Unsigned` status. An unsigned binary in a user directory is malicious until proven otherwise.
 2. Check the `CommandLine` of the accessor. `procdump.exe -accepteula -ma lsass.exe` is conclusive.
@@ -35,7 +35,7 @@ The baseline risk for an unrecognised process reading LSASS memory is low to med
 4. Identify the parent process. Was the accessor spawned by a shell, a macro, or an RMM tool?
 5. Determine if the file was recently downloaded or dropped (check `DeviceFileEvents` for the `AccessorPath`).
 
-## Response playbook
+## Response / Remediation
 
 1. Isolate the affected device immediately to prevent lateral movement.
 2. Assume the credentials of all users currently logged into or recently active on the machine have been compromised.

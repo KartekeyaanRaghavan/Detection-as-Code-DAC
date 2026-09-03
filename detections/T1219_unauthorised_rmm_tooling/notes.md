@@ -7,7 +7,7 @@
 | **Data source** | `DeviceProcessEvents`, `DeviceNetworkEvents` |
 | **Status** | Validated against fixtures |
 
-## Hypothesis
+## What are we looking for?
 
 An operator who has social engineered a user into granting remote access will use commodity RMM
 software rather than custom malware, because it is signed, often already allow listed, and
@@ -30,7 +30,7 @@ anomalous is the *shape* of the execution:
 
 The last row is why the baseline query at the bottom of the KQL matters more than the rule.
 
-## False positives, ranked by how often they occur
+## Expected FPs, ranked by how often they occur
 
 1. **Your own sanctioned RMM.** Unavoidable and expected. Handle it by naming the tool in
    `SanctionedRmm` and its install path in `SanctionedPaths`. Do not handle it by deleting the
@@ -43,7 +43,7 @@ The last row is why the baseline query at the bottom of the KQL matters more tha
 4. **A user self installing remote access to reach their home machine.** Not an intrusion, but a
    policy violation worth a conversation, so resolve it rather than suppressing it.
 
-## Triage steps
+## Investigation Steps
 
 1. Establish where the binary came from. Check `DeviceFileEvents` for the download and the
    referring process.
@@ -56,7 +56,7 @@ The last row is why the baseline query at the bottom of the KQL matters more tha
 5. Determine what happened during the session: files transferred, credentials accessed, other
    hosts reached.
 
-## Response playbook
+## Containment & Response
 
 1. Isolate the device.
 2. Kill the RMM process and its service before the operator notices, if a session is live.

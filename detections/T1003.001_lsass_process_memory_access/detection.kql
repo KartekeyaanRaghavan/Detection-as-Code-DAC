@@ -34,9 +34,9 @@ DeviceEvents
     Unsigned = isempty(InitiatingProcessSignerType) or InitiatingProcessSignerType == "None"
 | extend RiskScore =
         (iff(FromUserWritable, 40, 0))
-      + (iff(HasSuspiciousName, 35, 0))
-      + (iff(not(IsSystemLocation), 25, 0))
-      + (iff(Unsigned, 30, 0))
+      + iff(HasSuspiciousName, 35, 0)
+      + iff(not(IsSystemLocation), 25, 0)
+      + iff(Unsigned, 30, 0)
 | extend Severity = case(RiskScore >= 90, "High", RiskScore >= 50, "Medium", "Low")
 | project
     Timestamp, Severity, RiskScore, DeviceName, ActionType,

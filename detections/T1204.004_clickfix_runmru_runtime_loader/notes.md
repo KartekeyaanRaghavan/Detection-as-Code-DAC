@@ -7,7 +7,7 @@
 | **Data source** | `DeviceRegistryEvents`, `DeviceProcessEvents` (Defender for Endpoint) |
 | **Status** | Query A validated against fixtures. Queries B and C documented, not yet fixture-tested |
 
-## Hypothesis
+## What are we looking for?
 
 ClickFix removes the exploit from the intrusion. A lure page claims something is broken, tells the
 user to press Win+R and paste a supplied command, and the user executes it themselves. There is no
@@ -32,7 +32,7 @@ Detecting further down the chain is possible but worse:
 The RunMRU write happens once, early, and is almost noise-free. It is the cheapest place to catch
 the whole family.
 
-## Signal weighting in query A
+## Scoring logic in query A
 
 | Signal | Weight | Rationale |
 |---|---|---|
@@ -43,7 +43,7 @@ the whole family.
 | Command longer than 120 characters | 20 | Humans do not type this much into Run |
 | Embedded base64 blob (regex) | 30 | Strongest single indicator |
 
-## False positives, and the honest problem with this rule
+## Expected FPs, and the honest problem with this rule
 
 1. **Admins and developers.** They do paste real commands into Run. Volume is low and clears fast
    by account. Exclude named admin accounts, not the pattern.
@@ -61,7 +61,7 @@ The correct response is to accept a modest FP rate here and resolve it in triage
 tune the rule until it stops firing. A ClickFix detection with zero false positives has almost
 certainly been tuned into uselessness.
 
-## Triage steps
+## Investigation Steps
 
 1. Read the pasted command in full. It usually decodes to the whole first stage.
 2. Pull the user's browser history for the 10 minutes before the paste. The lure page is the
@@ -73,7 +73,7 @@ certainly been tuned into uselessness.
 6. If the second stage ran, treat the host as compromised. Signed-runtime loaders leave very
    little for AV to find, so a clean scan is not clearance.
 
-## Response playbook
+## Containment & Response
 
 1. Isolate the device. If a second stage executed, do this before user contact.
 2. Collect the pasted command, the lure URL, the second-stage binary path and hash, and any

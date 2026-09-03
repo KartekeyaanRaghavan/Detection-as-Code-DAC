@@ -7,7 +7,7 @@
 | **Data source** | `DeviceFileEvents`, `DeviceProcessEvents`, `DeviceNetworkEvents` |
 | **Status** | Validated against fixtures |
 
-## Hypothesis
+## Context
 
 An infostealer does not exploit the browser. It copies the browser's files. If a file bearing the
 name of a credential store appears anywhere other than a browser profile directory, something
@@ -41,7 +41,7 @@ The third row carries more weight than its size suggests. `Login Data` on its ow
 encrypted and close to worthless. `Local State` holds the wrapped AES key. A tool that takes
 both is decrypting, not backing up.
 
-## Signal weighting
+## Risk Scoring
 
 `Local State` or `key4.db` alongside the store is worth 30, because it separates theft from
 copying. Three or more distinct stores in one window is worth 25, because a sweep is a program
@@ -52,7 +52,7 @@ takes both, because it does not know in advance what the victim uses.
 The copier wearing a browser's name while not living in a browser's directory is worth 30. That
 is the same reasoning as the T1219 rule - judge the execution by its path, not its name.
 
-## False positives, ranked by how often they occur
+## Known False Positives, ranked by how often they occur
 
 1. **Backup and profile roaming agents.** By far the largest source of volume. They copy whole
    profile trees, so they trip the sweep and multi vendor signals at once and score High. This is
@@ -67,7 +67,7 @@ is the same reasoning as the T1219 rule - judge the execution by its path, not i
 5. **Your own IR tooling.** Suppress by the analyst account, not by the binary, so that an
    operator running the same tool still alerts.
 
-## Triage steps
+## How to Triage
 
 1. Read `StoresTaken` first. Whether `Local State` or `key4.db` is in the set decides whether you
    are looking at theft or at housekeeping.
@@ -82,7 +82,7 @@ is the same reasoning as the T1219 rule - judge the execution by its path, not i
    that path and the two frequently fire on the same host within the same hour.
 6. Determine which browsers the user was signed into. That, not the file list, is the blast radius.
 
-## Response playbook
+## Playbook
 
 1. Isolate the device.
 2. Assume every credential and every session cookie in the affected profiles is compromised. The

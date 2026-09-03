@@ -35,11 +35,11 @@ DeviceRegistryEvents
 | where HasInterpreter or HasDownloader or HasObfuscation
 | extend RiskScore =
         (iff(HasInterpreter, 40, 0))
-      + (iff(HasDownloader, 30, 0))
-      + (iff(HasObfuscation, 40, 0))
-      + (iff(HasInterpreter and HasDownloader, 20, 0))    // interpreter + remote fetch = the ClickFix shape
-      + (iff(strlen(TypedCommand) > 120, 20, 0))          // pasted, not typed
-      + (iff(cmd matches regex @"[a-z0-9+/]{80,}={0,2}", 30, 0))  // embedded base64 blob
+      + iff(HasDownloader, 30, 0)
+      + iff(HasObfuscation, 40, 0)
+      + iff(HasInterpreter and HasDownloader, 20, 0)    // interpreter + remote fetch = the ClickFix shape
+      + iff(strlen(TypedCommand) > 120, 20, 0)          // pasted, not typed
+      + iff(cmd matches regex @"[a-z0-9+/]{80,}={0,2}", 30, 0)  // embedded base64 blob
 | extend Severity = case(RiskScore >= 90, "High", RiskScore >= 50, "Medium", "Low")
 | project
     Timestamp, Severity, RiskScore, DeviceName,

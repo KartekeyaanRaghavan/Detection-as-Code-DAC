@@ -7,7 +7,7 @@
 | **Data source** | `EmailEvents`, `CloudAppEvents` |
 | **Status** | Validated against fixtures |
 
-## Hypothesis
+## What are we looking for?
 
 The operator signs the victim's address up to hundreds of mailing lists and registration forms.
 Within an hour the mailbox is unusable. Then an external Teams account appears, presenting itself
@@ -23,16 +23,16 @@ Take either half alone and it does not work:
 | Mail bombing | Looks like a user who signed up for too many newsletters. Also used as cover for a single real notification, so it is noisy in both directions |
 | External Teams contact | Entirely normal in any tenant that permits federation |
 
-Together, in a short window, they are close to unambiguous. The operator has a timing constraint:
+Together, in a short window, they are close to unambiguous. The attacker has a narrow window here:
 the lure only works while the victim is still looking at a flooded mailbox, so the second stage
 arrives within minutes to hours. That constraint is a gift, because it lets the rule use a tight
 correlation window and stay precise.
 
-This is worth understanding as a general principle. Some techniques have no high fidelity single
+This is a key pattern to look out for. Some techniques have no high fidelity single
 indicator, and the answer is not a lower threshold on a weak signal but a correlation across two
 data sources that the attacker's own operational needs force to be close together in time.
 
-## Signal weighting
+## Scoring logic
 
 | Signal | Weight |
 |---|---|
@@ -45,7 +45,7 @@ The correlation carries most of the score deliberately. The persona check is a b
 requirement, because an operator who names themselves after a real internal colleague rather than
 "IT Support" is more dangerous, not less, and must still fire.
 
-## False positives
+## Expected FPs
 
 1. **Genuine federated support from an MSP or outsourced help desk.** The real one. Allow list by
    sending tenant in `TrustedSupportTenants`, never by display name, since display name is the
@@ -59,7 +59,7 @@ Notably absent from this list: high volume noise. This rule should fire a handfu
 in a mid size tenant. If it fires daily, the thresholds are wrong for your environment, or you
 have a campaign.
 
-## Triage steps
+## Investigation Steps
 
 1. Read the actual Teams messages. Social engineering is legible in a way that most telemetry
    is not, and the transcript usually settles the verdict immediately.
@@ -72,7 +72,7 @@ have a campaign.
    intrusion and the T1219 playbook applies immediately.
 5. Check whether the victim entered credentials or approved an MFA prompt during the window.
 
-## Response playbook
+## Containment & Response
 
 1. If remote access ran, isolate the device first and work the T1219 playbook. Everything below
    is secondary to that.

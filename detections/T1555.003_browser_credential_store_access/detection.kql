@@ -71,13 +71,13 @@ DeviceFileEvents
 | extend MultiVendor = HitsChromium and HitsGecko
 | extend RiskScore =
         35                                                 // a store outside its profile dir
-      + (iff(TakesMasterKey,     30, 0))                   // without this the loot is encrypted
-      + (iff(DistinctStores >= 3, 25, 0))                  // a sweep, not a single copy
-      + (iff(CopierInTemp,       25, 0))
-      + (iff(MultiVendor,        20, 0))                   // no legitimate tool needs both
-      + (iff(CopierUnsigned,     20, 0))
-      + (iff(LandedInTemp,       15, 0))
-      + (iff(CopierMasquerades,  30, 0))
+      + iff(TakesMasterKey,     30, 0)                   // without this the loot is encrypted
+      + iff(DistinctStores >= 3, 25, 0)                  // a sweep, not a single copy
+      + iff(CopierInTemp,       25, 0)
+      + iff(MultiVendor,        20, 0)                   // no legitimate tool needs both
+      + iff(CopierUnsigned,     20, 0)
+      + iff(LandedInTemp,       15, 0)
+      + iff(CopierMasquerades,  30, 0)
 | extend Severity = case(RiskScore >= 95, "High", RiskScore >= 60, "Medium", "Low")
 | project
     Timestamp = FirstSeen, LastSeen, Severity, RiskScore,

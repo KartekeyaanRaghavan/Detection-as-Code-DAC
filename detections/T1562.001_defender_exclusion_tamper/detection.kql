@@ -37,12 +37,11 @@ DeviceRegistryEvents
 | extend Unsigned = isempty(InitiatingProcessSignerType) or InitiatingProcessSignerType == "None"
 | extend UserWritable = ModifyingProcess has_any (@"\appdata\", @"\users\public\", @"\downloads\", @"\temp\")
 | extend SuspiciousActor = InitiatingProcessFileName in~ ("powershell.exe", "pwsh.exe", "cmd.exe", "reg.exe")
-| extend RiskScore = 
-        60
-      + (iff(IsTamper, 20, 0))
-      + (iff(Unsigned, 20, 0))
-      + (iff(SuspiciousActor, 30, 0))
-      + (iff(UserWritable, 30, 0))
+| extend RiskScore = 60
+      + iff(IsTamper, 20, 0)
+      + iff(Unsigned, 20, 0)
+      + iff(SuspiciousActor, 30, 0)
+      + iff(UserWritable, 30, 0)
 | extend Severity = case(RiskScore >= 90, "High", RiskScore >= 60, "Medium", "Low")
 | project 
     Timestamp, Severity, RiskScore, DeviceName, ActionType,

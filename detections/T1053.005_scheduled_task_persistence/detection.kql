@@ -31,11 +31,10 @@ DeviceProcessEvents
 | extend UnsignedParent = isempty(InitiatingProcessSignerType) or InitiatingProcessSignerType == "None"
 | extend IsSystem = tolower(AccountName) in ("system", "local service", "network service")
 // If the task creates persistence as SYSTEM but was initiated by a standard user context, that's high risk
-| extend RiskScore = 
-        40
-      + (iff(FromUserWritable, 30, 0))
-      + (iff(CallsSuspiciousBinary, 40, 0))
-      + (iff(UnsignedParent, 20, 0))
+| extend RiskScore = 40
+      + iff(FromUserWritable, 30, 0)
+      + iff(CallsSuspiciousBinary, 40, 0)
+      + iff(UnsignedParent, 20, 0)
 | extend Severity = case(RiskScore >= 90, "High", RiskScore >= 60, "Medium", "Low")
 | project 
     Timestamp, Severity, RiskScore, DeviceName,

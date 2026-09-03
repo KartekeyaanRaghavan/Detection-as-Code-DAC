@@ -54,10 +54,10 @@ clicks
     MinutesToClick   = datetime_diff('minute', ClickTime, MailTime)
 | extend RiskScore =
         40                                                    // unknown sender, click not blocked
-      + (iff(LandsOnAuthPage, 30, 0))
-      + (iff(Delivered, 15, 0))
-      + (iff(ManyUrls, 10, 0))
-      + (iff(MinutesToClick <= 10, 15, 0))                    // clicked almost immediately
+      + iff(LandsOnAuthPage, 30, 0)
+      + iff(Delivered, 15, 0)
+      + iff(ManyUrls, 10, 0)
+      + iff(MinutesToClick <= 10, 15, 0)                    // clicked almost immediately
 | extend Severity = case(RiskScore >= 85, "High", RiskScore >= 55, "Medium", "Low")
 | project
     ClickTime, Severity, RiskScore,

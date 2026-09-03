@@ -36,9 +36,9 @@ DeviceProcessEvents
 | where FromUserWritable or DeliveryParent
 | extend RiskScore =
         (iff(FromUserWritable, 40, 0))
-      + (iff(DeliveryParent, 35, 0))
-      + (iff(not(FromSanctioned), 15, 0))
-      + (iff(Unsigned, 20, 0))
+      + iff(DeliveryParent, 35, 0)
+      + iff(not(FromSanctioned), 15, 0)
+      + iff(Unsigned, 20, 0)
 | extend Severity = case(RiskScore >= 75, "High", RiskScore >= 40, "Medium", "Low")
 | project
     Timestamp, Severity, RiskScore, DeviceName,

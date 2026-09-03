@@ -61,10 +61,10 @@ CloudAppEvents
 | where ForwardsExternally or SuppressesMail
 | extend RiskScore =
         (iff(ForwardsExternally, 50, 0))
-      + (iff(SuppressesMail, 30, 0))
-      + (iff(TargetsHighRiskKeywords, 20, 0))
-      + (iff(MarkAsRead =~ "True", 10, 0))
-      + (iff(isempty(trim(" ", RuleName)) or RuleName in (".", "..", "-", "_", " "), 15, 0))  // unnamed / single-char rules
+      + iff(SuppressesMail, 30, 0)
+      + iff(TargetsHighRiskKeywords, 20, 0)
+      + iff(MarkAsRead =~ "True", 10, 0)
+      + iff(isempty(trim(" ", RuleName) or RuleName in (".", "..", "-", "_", " "), 15, 0))  // unnamed / single-char rules
 | extend Severity = case(RiskScore >= 80, "High", RiskScore >= 50, "Medium", "Low")
 | project
     Timestamp,

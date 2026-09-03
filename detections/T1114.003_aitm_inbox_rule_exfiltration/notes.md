@@ -7,7 +7,7 @@
 | **Data source** | Exchange Online mailbox audit via `CloudAppEvents` (Defender XDR) or `OfficeActivity` (Sentinel) |
 | **Status** | Validated against synthetic events, see `validation.md` |
 
-## Hypothesis
+## What are we looking for?
 
 An operator who has stolen a session token through AiTM phishing will, within minutes to hours,
 create a mailbox rule that (a) copies future correspondence out of the tenant, and (b) hides the
@@ -37,7 +37,7 @@ That inversion is the single most common triage mistake on this alert class.
 Anything scoring 80+ has both exfiltration and suppression and should be treated as a confirmed
 compromise until disproven, not as a lead.
 
-## False positives, and how to actually clear them
+## Expected FPs, and how to actually clear them
 
 Ranked by how often they appeared in production:
 
@@ -58,7 +58,7 @@ Ranked by how often they appeared in production:
 keyword. Excluding "Archive" because it is noisy removes the mechanism the attacker relies on.
 The FP problem here is an identity problem, not a rule-logic problem.
 
-## Triage steps
+## Investigation Steps
 
 1. Establish whether the forward target is external, and whether the domain is newly registered
    or a lookalike of a partner domain.
@@ -71,7 +71,7 @@ The FP problem here is an identity problem, not a rule-logic problem.
 6. Determine blast radius: has the account sent mail internally since the rule appeared? AiTM
    compromises propagate laterally by mailing the victim's own contacts.
 
-## Response playbook
+## Containment & Response
 
 Order matters. Removing the rule first tells the operator they have been seen while they still
 hold a valid token.
