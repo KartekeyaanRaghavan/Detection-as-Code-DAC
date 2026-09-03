@@ -34,7 +34,7 @@ PIPELINE = "microsoft_xdr"
 
 # Sigma logsource products the microsoft_xdr pipeline cannot map to a table. See docstring.
 UNMAPPABLE_PRODUCTS = {"m365"}
-UNMAPPABLE_CATEGORIES = {"process_access"}
+UNMAPPABLE_CATEGORIES = {"process_access", "logon"}
 
 
 def main() -> int:

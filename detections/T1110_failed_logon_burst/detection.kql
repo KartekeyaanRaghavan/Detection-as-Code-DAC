@@ -1,0 +1,55 @@
+// Failed logon burst followed by success
+// Platform : Microsoft Defender XDR - Advanced Hunting
+// Table    : DeviceLogonEvents
+// ATT&CK   : T1110 (Brute Force)
+// Author   : Kartekeyaan Raghavan
+//
+// TUNE: Thresholds for what constitutes a "burst" are highly environment-specific.
+
+let lookback = 30d;
+let BurstThreshold = 5; // TUNE: minimum failed attempts before a success
+let BurstWindow = 15m;  // TUNE: time window for the burst
+
+let FailedLogons = DeviceLogonEvents
+| where Timestamp > ago(lookback)
+| where ActionType == "LogonFailed"
+| where isnotempty(AccountName) and isnotempty(RemoteIP)
+| project FailedTime = Timestamp, AccountName, RemoteIP, DeviceName;
+
+let SuccessfulLogons = DeviceLogonEvents
+| where Timestamp > ago(lookback)
+| where ActionType == "LogonSuccess"
+| where isnotempty(AccountName) and isnotempty(RemoteIP)
+| project SuccessTime = Timestamp, AccountName, RemoteIP, DeviceName;
+
+FailedLogons
+| join kind=inner SuccessfulLogons on AccountName, RemoteIP
+// the failure must happen BEFORE the success, and within the window
+| where SuccessTime > FailedTime and (SuccessTime - FailedTime) <= BurstWindow
+| summarize 
+    FailedCount = count(), 
+    FirstFailed = min(FailedTime), 
+    LastFailed = max(FailedTime),
+    SuccessTime = min(SuccessTime) 
+    by AccountName, RemoteIP, DeviceName
+| where FailedCount >= BurstThreshold
+| extend RiskScore = 
+        50 
+      + (iff(FailedCount >= 10, 20, 0))
+      + (iff(FailedCount >= 20, 20, 0))
+| extend Severity = case(RiskScore >= 90, "High", RiskScore >= 60, "Medium", "Low")
+| project 
+    Timestamp = SuccessTime, Severity, RiskScore, 
+    Account = AccountName, RemoteIP, DeviceName, 
+    FailedCount, FirstFailed, LastFailed, SuccessTime
+| order by RiskScore desc, Timestamp desc
+
+// =====================================================================================
+// BASELINE: Identify frequent failed logon pairs
+// =====================================================================================
+//
+// DeviceLogonEvents
+// | where Timestamp > ago(30d)
+// | where ActionType == "LogonFailed"
+// | summarize FailedCount = count() by AccountName, RemoteIP, DeviceName
+// | order by FailedCount desc

@@ -380,6 +380,28 @@ def score_lsass_memory_access(event: dict, fixture: dict) -> dict:
     }
 
 
+
+# --------------------------------------------------------------------------------------
+# T1110 - Failed logon burst followed by success
+# --------------------------------------------------------------------------------------
+
+def score_failed_logon_burst(event: dict, fixture: dict) -> dict:
+    failed_count = event.get("FailedCount", 0)
+    
+    if failed_count < 5:
+        return {"fires": False}
+        
+    score = 50
+    score += (20 if failed_count >= 10 else 0)
+    score += (20 if failed_count >= 20 else 0)
+
+    return {
+        "fires": True,
+        "score": score,
+        "severity": "High" if score >= 90 else "Medium" if score >= 60 else "Low"
+    }
+
+
 SCORERS = {
     "t1204_004_runmru.json": lambda e, fx: score_runmru(e),
     "t1114_003_inbox_rule.json": lambda e, fx: score_inbox_rule(e, fx.get("accepted_domains", [])),
@@ -388,6 +410,7 @@ SCORERS = {
     "t1566_002_phishing_click.json": score_phishing_click,
     "t1555_003_browser_credential_store.json": score_browser_credential_theft,
     "t1003_001_lsass_memory_access.json": score_lsass_memory_access,
+    "t1110_failed_logon_burst.json": score_failed_logon_burst,
 }
 
 

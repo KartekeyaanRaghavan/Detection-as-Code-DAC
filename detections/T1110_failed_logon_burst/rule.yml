@@ -1,0 +1,21 @@
+title: Failed logon burst followed by success
+id: ddb0f01a-8488-4660-84c1-6bfb5a32490d
+status: test
+description: Detects a sequence of failed logon attempts followed by a successful logon to the same account from the same source.
+author: Kartekeyaan Raghavan
+date: 2026-09-03
+tags:
+    - attack.credential_access
+    - attack.t1110
+logsource:
+    category: logon
+    product: windows
+detection:
+    selection_failed:
+        ActionType: LogonFailed
+    selection_success:
+        ActionType: LogonSuccess
+    condition: selection_failed or selection_success
+falsepositives:
+    - User forgotten password attempts
+level: medium

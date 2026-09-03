@@ -1,0 +1,49 @@
+{
+  "rule": "T1110_failed_logon_burst",
+  "table": "DeviceLogonEvents",
+  "note": "Synthetic events simulating the aggregated output of the sequence join.",
+  "events": [
+    {
+      "_id": "tp_high_volume_brute_force",
+      "AccountName": "admin",
+      "RemoteIP": "198.51.100.22",
+      "FailedCount": 25,
+      "_expected": {
+        "fires": true,
+        "severity": "High",
+        "score": 90
+      }
+    },
+    {
+      "_id": "tp_medium_volume_spray",
+      "AccountName": "service_sql",
+      "RemoteIP": "192.168.1.55",
+      "FailedCount": 12,
+      "_expected": {
+        "fires": true,
+        "severity": "Medium",
+        "score": 70
+      }
+    },
+    {
+      "_id": "tp_low_volume_guess",
+      "AccountName": "alice",
+      "RemoteIP": "10.0.0.12",
+      "FailedCount": 6,
+      "_expected": {
+        "fires": true,
+        "severity": "Low",
+        "score": 50
+      }
+    },
+    {
+      "_id": "fp_below_threshold",
+      "AccountName": "bob",
+      "RemoteIP": "172.16.0.4",
+      "FailedCount": 3,
+      "_expected": {
+        "fires": false
+      }
+    }
+  ]
+}

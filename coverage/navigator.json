@@ -109,9 +109,9 @@
     },
     {
       "techniqueID": "T1110",
-      "score": 25,
-      "color": "#f9a825",
-      "comment": "Roadmap: failed logon burst then success.",
+      "score": 100,
+      "color": "#2e7d32",
+      "comment": "Validated: Failed logon burst followed by success.",
       "enabled": true
     },
     {
