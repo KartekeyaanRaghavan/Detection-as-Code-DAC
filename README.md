@@ -1,6 +1,6 @@
 # Detection as Code
 
-**Author:** [Kartekeyaan Raghavan](https://linkedin.com/in/kartekeyaan-raghavan)
+**Author:** [Kartekeyaan Raghavan](https://www.linkedin.com/in/kartekeyaan-raghavan-985a08190/)
 
 Detection engineering portfolio: Sigma rules with compiled Defender XDR KQL, analyst notes,
 false positive guidance, response playbooks and validation evidence.
