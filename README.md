@@ -64,19 +64,36 @@ each other where that happens.
 ## Using these rules
 
 ```bash
-pip install sigma-cli pysigma-backend-microsoft365defender
+pip install pyyaml sigma-cli pysigma-backend-kusto
 
 # convert a rule to Defender XDR KQL
-sigma convert -t microsoft365defender detections/T1114.003_aitm_inbox_rule_exfiltration/rule.yml
+sigma convert -t kusto -p microsoft_xdr detections/T1219_unauthorised_rmm_tooling/rule.yml
 
-# validate rule structure and run the fixture tests
+# validate rule structure, check every rule still converts, run the fixture tests
 python tools/check_rules.py
+python tools/convert_rules.py
 python tools/run_tests.py
 ```
 
 The checked in `detection.kql` files are not raw `sigma convert` output. They add scoring,
 enrichment and tuning parameters that Sigma cannot express. The Sigma rule is the portable
 definition; the KQL is the deployable artefact.
+
+### Why three rules do not convert
+
+`tools/convert_rules.py` converts the Windows endpoint rules and deliberately skips the
+three Microsoft 365 ones. This is a limit of the public toolchain, not a defect in the rules.
+
+The kusto backend's `microsoft_xdr` pipeline maps Sigma logsource *categories* to the
+`Device*` tables. It has no mapping for `CloudAppEvents`, `EmailEvents` or `UrlClickEvents`,
+and it cannot be given one by a field mapping, because the fields those rules match on -
+`Operation`, `Parameters`, `CommunicationType`, `SenderDisplayName` - are not columns in
+those tables. They are keys inside the `RawEventData` dynamic column, reachable only by
+`parse_json` and `mv-apply`, which is what the hand written KQL does.
+
+The Sigma rules keep the field names that SigmaHQ's own `product: m365` rules use, so they
+stay portable to other backends. The skip is enforced in code and printed on every run
+rather than left as a silent warning.
 
 Before deploying anything, set the values marked `// TUNE`. Several rules ship with an empty
 allow list on purpose, and at least two of them (T1219 and T1566.002) will produce an unusable
