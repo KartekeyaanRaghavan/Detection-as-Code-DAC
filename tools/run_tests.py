@@ -272,12 +272,79 @@ def score_phishing_click(event: dict, fixture: dict) -> dict:
     }
 
 
+# --------------------------------------------------------------------------------------
+# T1555.003 - browser credential store copied out of its profile directory
+# --------------------------------------------------------------------------------------
+#
+# Each fixture event is a per-process, per-window aggregate, matching the summarize in
+# detection.kql rather than a single raw file event. The rule scores a process's whole sweep,
+# so a per-event scorer would be testing something the rule does not do.
+#
+# Reuses USER_WRITABLE from the T1219 block above: the definition of "somewhere a user can
+# drop a file" is a property of Windows, not of either rule, and duplicating it invites the
+# two copies to drift.
+
+CHROMIUM_STORES = {"login data", "login data for account", "web data", "local state"}
+GECKO_STORES = {"logins.json", "key3.db", "key4.db", "cookies.sqlite", "signons.sqlite"}
+MASTER_KEY_STORES = {"local state", "key4.db", "key3.db"}
+BROWSER_NAMES = {"chrome.exe", "msedge.exe", "firefox.exe", "brave.exe", "opera.exe",
+                 "vivaldi.exe"}
+BROWSER_INSTALL_PATHS = ["\\program files\\google\\chrome\\",
+                         "\\program files (x86)\\google\\chrome\\",
+                         "\\program files\\microsoft\\edge\\",
+                         "\\program files (x86)\\microsoft\\edge\\",
+                         "\\program files\\mozilla firefox\\",
+                         "\\program files\\bravesoftware\\",
+                         "\\program files (x86)\\bravesoftware\\"]
+
+
+def score_browser_credential_theft(event: dict, fixture: dict) -> dict:
+    copier = str(event.get("Copier", "")).lower()
+    if copier in {c.lower() for c in fixture.get("allowed_copiers", [])}:
+        return {"fires": False}
+
+    stores = {str(s).lower() for s in event.get("StoresTaken", [])}
+    if not stores:
+        return {"fires": False}
+
+    copier_path = str(event.get("CopierPath", "")).lower()
+    landed = " ".join(str(x) for x in event.get("LandedIn", [])).lower()
+
+    takes_master_key = bool(stores & MASTER_KEY_STORES)
+    multi_vendor = bool(stores & CHROMIUM_STORES) and bool(stores & GECKO_STORES)
+    copier_in_temp = any(frag in copier_path for frag in USER_WRITABLE)
+    landed_in_temp = any(frag in landed for frag in USER_WRITABLE)
+    unsigned = str(event.get("CopierSigner", "")) == ""
+    # A process wearing a browser's name while not living in a browser's directory.
+    masquerades = (copier in BROWSER_NAMES
+                   and not any(b in copier_path for b in BROWSER_INSTALL_PATHS))
+
+    score = 35
+    score += (30 if takes_master_key else 0)
+    score += (25 if len(stores) >= 3 else 0)
+    score += (25 if copier_in_temp else 0)
+    score += (20 if multi_vendor else 0)
+    score += (20 if unsigned else 0)
+    score += (15 if landed_in_temp else 0)
+    score += (30 if masquerades else 0)
+
+    return {
+        "fires": True,
+        "score": score,
+        "severity": "High" if score >= 95 else "Medium" if score >= 60 else "Low",
+        "signals": {"takes_master_key": takes_master_key, "multi_vendor": multi_vendor,
+                    "copier_in_temp": copier_in_temp, "unsigned": unsigned,
+                    "masquerades_as_browser": masquerades},
+    }
+
+
 SCORERS = {
     "t1204_004_runmru.json": lambda e, fx: score_runmru(e),
     "t1114_003_inbox_rule.json": lambda e, fx: score_inbox_rule(e, fx.get("accepted_domains", [])),
     "t1219_rmm.json": score_rmm,
     "t1656_teams_impersonation.json": score_teams_impersonation,
     "t1566_002_phishing_click.json": score_phishing_click,
+    "t1555_003_browser_credential_store.json": score_browser_credential_theft,
 }
 
 

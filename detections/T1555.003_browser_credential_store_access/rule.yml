@@ -1,0 +1,59 @@
+title: Browser Credential Store Copied Out Of Its Profile Directory
+id: bb8f26f6-5c6e-465a-8ffa-78f174d6c2d1
+status: experimental
+description: |
+  Detects a file bearing the name of a browser credential store being created outside a browser
+  profile directory: the Chromium login, cookie and Web Data databases, the Local State file that
+  holds the DPAPI wrapped master key, or the Firefox logins.json and key4.db pair.
+
+  Commodity infostealers - Lumma, RedLine, Vidar, StealC and their many rebrands - do not exploit
+  the browser. They copy its files. The stolen session material is sold on and is the most common
+  precursor to the adversary in the middle sign in that this repository detects separately as
+  T1114.003. Cutting the chain at the theft is cheaper than detecting its consequences.
+
+  The anchor is the copy rather than the read, and that is a deliberate constraint of the data
+  source rather than a modelling preference. Defender for Endpoint records file creation,
+  modification and rename. It does not emit a general file read event, so a stealer that reads a
+  store in place produces no file telemetry at all. In practice most do not read in place, because
+  Chromium holds a lock on Login Data while the browser is running, so the working technique is to
+  copy the store to a temporary location first. That copy is a creation event, and it is what this
+  rule sees.
+references:
+  - https://attack.mitre.org/techniques/T1555/003/
+  - https://learn.microsoft.com/en-us/defender-xdr/advanced-hunting-devicefileevents-table
+author: Kartekeyaan Raghavan
+date: 2026/09/03
+tags:
+  - attack.credential-access
+  - attack.t1555.003
+logsource:
+  category: file_event
+  product: windows
+detection:
+  selection_store_name:
+    FileName:
+      - 'Login Data'
+      - 'Login Data For Account'
+      - 'Web Data'
+      - 'Local State'
+      - 'logins.json'
+      - 'key3.db'
+      - 'key4.db'
+      - 'cookies.sqlite'
+      - 'signons.sqlite'
+  filter_inside_browser_profile:
+    FolderPath|contains:
+      - '\User Data\'
+      - '\Mozilla\Firefox\Profiles\'
+      - '\Opera Software\'
+      - '\Vivaldi\'
+  condition: selection_store_name and not filter_inside_browser_profile
+falsepositives:
+  - Enterprise backup and profile roaming agents, which copy whole profile trees including these
+    files and are the single largest source of volume on this rule
+  - Password manager import wizards, which copy exactly these files on purpose, once, with the
+    user present
+  - Browser migration and IT provisioning scripts run during onboarding
+  - Endpoint security and DLP products that inventory browser data
+  - Forensic and IR tooling run by the security team itself
+level: high
