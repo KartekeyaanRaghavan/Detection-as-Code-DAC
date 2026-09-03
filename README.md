@@ -42,11 +42,11 @@ detections/<TECHNIQUE>_<name>/
 | [T1566.002](detections/T1566.002_phishing_click_credential_harvest) | Click through to a credential harvesting page from a non prevalent sender | Initial Access | `UrlClickEvents`, `EmailEvents` | Fixtures |
 | [T1656](detections/T1656_teams_impersonation_after_mail_bombing) | External Teams contact to a user who was just mail bombed | Initial Access | `EmailEvents`, `CloudAppEvents` | Fixtures |
 
-Ten of a planned twenty. Two of these ten are correlation rules across two data sources rather
+Ten of a planned fifteen. Two of these ten are correlation rules across two data sources rather
 than single table queries, which is deliberate: several of the techniques that matter most have no
 high fidelity single indicator.
 
-Three of the ten chain together into one intrusion. A user clicks a harvesting link
+Four of the ten chain together into two distinct intrusions. A user clicks a harvesting link
 (T1566.002), the operator replays the session and creates a mailbox rule (T1114.003), or a user is
 mail bombed and talked into remote access over Teams (T1656 into T1219). The notes cross reference
 each other where that happens.
@@ -79,21 +79,16 @@ The checked in `detection.kql` files are not raw `sigma convert` output. They ad
 enrichment and tuning parameters that Sigma cannot express. The Sigma rule is the portable
 definition; the KQL is the deployable artefact.
 
-### Why three rules do not convert
+### Why five rules do not convert
 
-`tools/convert_rules.py` converts the Windows endpoint rules and deliberately skips the
-three Microsoft 365 ones. This is a limit of the public toolchain, not a defect in the rules.
+`tools/convert_rules.py` converts most Windows endpoint rules but deliberately skips the three Microsoft 365 rules and two specific endpoint rules (`T1110` and `T1003.001`). This is a limit of the public toolchain, not a defect in the rules.
 
-The kusto backend's `microsoft_xdr` pipeline maps Sigma logsource *categories* to the
-`Device*` tables. It has no mapping for `CloudAppEvents`, `EmailEvents` or `UrlClickEvents`,
-and it cannot be given one by a field mapping, because the fields those rules match on -
-`Operation`, `Parameters`, `CommunicationType`, `SenderDisplayName` - are not columns in
-those tables. They are keys inside the `RawEventData` dynamic column, reachable only by
-`parse_json` and `mv-apply`, which is what the hand written KQL does.
+The kusto backend's `microsoft_xdr` pipeline maps Sigma logsource *categories* to the `Device*` tables. 
 
-The Sigma rules keep the field names that SigmaHQ's own `product: m365` rules use, so they
-stay portable to other backends. The skip is enforced in code and printed on every run
-rather than left as a silent warning.
+1. **Microsoft 365 Data:** It has no mapping for `CloudAppEvents`, `EmailEvents` or `UrlClickEvents`, and it cannot be given one by a field mapping, because the fields those rules match on (`Operation`, `Parameters`, `CommunicationType`, `SenderDisplayName`) are not top-level columns. They are keys inside the `RawEventData` dynamic column, reachable only by `parse_json` and `mv-apply`, which is what the hand-written KQL does.
+2. **Specific Endpoint Categories:** It also lacks out-of-the-box mappings for the `process_access` and `logon` Sigma categories without resorting to complex join conditions that pySigma cannot safely infer.
+
+The Sigma rules keep the native field names and categories so they stay portable to other backends (like Splunk or Elastic). The skip is enforced in code and printed on every run rather than left as a silent warning, with the hand-written `detection.kql` remaining the deployable artefact.
 
 Before deploying anything, set the values marked `// TUNE`. Several rules ship with an empty
 allow list on purpose, and at least two of them (T1219 and T1566.002) will produce an unusable
