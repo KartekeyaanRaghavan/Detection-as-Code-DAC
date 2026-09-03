@@ -1,0 +1,65 @@
+{
+  "rule": "T1562.001_defender_exclusion_tamper",
+  "table": "DeviceRegistryEvents",
+  "note": "Synthetic events for Defender evasion via registry.",
+  "allowed_modifiers": [
+    "c:\\windows\\system32\\svchost.exe",
+    "c:\\windows\\system32\\wininit.exe"
+  ],
+  "events": [
+    {
+      "_id": "tp_powershell_disable_realtime",
+      "ActionType": "RegistryValueSet",
+      "RegistryKey": "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows Defender\\Real-Time Protection\\DisableRealtimeMonitoring",
+      "RegistryValueData": "1",
+      "InitiatingProcessFolderPath": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+      "InitiatingProcessFileName": "powershell.exe",
+      "InitiatingProcessSignerType": "Microsoft",
+      "_expected": {
+        "fires": true,
+        "severity": "High",
+        "score": 110
+      }
+    },
+    {
+      "_id": "tp_cmd_reg_add_exclusion",
+      "ActionType": "RegistryKeyCreated",
+      "RegistryKey": "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows Defender\\Exclusions\\Paths\\C:\\Temp",
+      "RegistryValueData": "",
+      "InitiatingProcessFolderPath": "C:\\Windows\\System32\\cmd.exe",
+      "InitiatingProcessFileName": "cmd.exe",
+      "InitiatingProcessSignerType": "Microsoft",
+      "_expected": {
+        "fires": true,
+        "severity": "High",
+        "score": 90
+      }
+    },
+    {
+      "_id": "tp_unsigned_malware_disable_tamper",
+      "ActionType": "RegistryValueSet",
+      "RegistryKey": "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows Defender\\Features\\TamperProtection",
+      "RegistryValueData": "0",
+      "InitiatingProcessFolderPath": "C:\\Users\\alice\\AppData\\Local\\Temp\\malware.exe",
+      "InitiatingProcessFileName": "malware.exe",
+      "InitiatingProcessSignerType": "None",
+      "_expected": {
+        "fires": true,
+        "severity": "High",
+        "score": 130
+      }
+    },
+    {
+      "_id": "fp_sccm_baseline",
+      "ActionType": "RegistryValueSet",
+      "RegistryKey": "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows Defender\\Exclusions\\Paths\\C:\\Program Files\\App",
+      "RegistryValueData": "0",
+      "InitiatingProcessFolderPath": "C:\\Windows\\System32\\svchost.exe",
+      "InitiatingProcessFileName": "svchost.exe",
+      "InitiatingProcessSignerType": "Microsoft",
+      "_expected": {
+        "fires": false
+      }
+    }
+  ]
+}

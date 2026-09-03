@@ -402,6 +402,60 @@ def score_failed_logon_burst(event: dict, fixture: dict) -> dict:
     }
 
 
+
+# --------------------------------------------------------------------------------------
+# T1562.001 - Defender exclusion added or tamper protection disabled
+# --------------------------------------------------------------------------------------
+
+def score_defender_evasion(event: dict, fixture: dict) -> dict:
+    modifying_process = str(event.get("InitiatingProcessFolderPath", "")).lower()
+    if modifying_process in {c.lower() for c in fixture.get("allowed_modifiers", [])}:
+        return {"fires": False}
+        
+    action_type = str(event.get("ActionType", "")).lower()
+    if action_type not in {"registryvalueset", "registrykeycreated"}:
+        return {"fires": False}
+        
+    key_lower = str(event.get("RegistryKey", "")).lower()
+    
+    exclusion_paths = ["\\microsoft\\windows defender\\exclusions\\"]
+    tamper_keys = [
+        "\\microsoft\\windows defender\\features\\tamperprotection",
+        "\\microsoft\\windows defender\\real-time protection\\disablerealtimemonitoring",
+        "\\microsoft\\windows defender\\real-time protection\\disablebehaviormonitoring",
+        "\\microsoft\\windows defender\\real-time protection\\disableonaccessprotection",
+        "\\microsoft\\windows defender\\spynet\\spynetreporting",
+        "\\microsoft\\windows defender\\spynet\\submitsamplesconsent"
+    ]
+    
+    is_exclusion = any(p in key_lower for p in exclusion_paths)
+    is_tamper = any(t in key_lower for t in tamper_keys)
+    
+    if not (is_exclusion or is_tamper):
+        return {"fires": False}
+
+    actor = str(event.get("InitiatingProcessFileName", "")).lower()
+    suspicious_actors = {"powershell.exe", "pwsh.exe", "cmd.exe", "reg.exe"}
+    suspicious_actor = actor in suspicious_actors
+    
+    signer = str(event.get("InitiatingProcessSignerType", ""))
+    unsigned = not signer or signer == "None"
+    
+    user_writable = any(frag in modifying_process for frag in USER_WRITABLE)
+
+    score = 60
+    score += (20 if is_tamper else 0)
+    score += (20 if unsigned else 0)
+    score += (30 if suspicious_actor else 0)
+    score += (30 if user_writable else 0)
+
+    return {
+        "fires": True,
+        "score": score,
+        "severity": "High" if score >= 90 else "Medium" if score >= 60 else "Low"
+    }
+
+
 SCORERS = {
     "t1204_004_runmru.json": lambda e, fx: score_runmru(e),
     "t1114_003_inbox_rule.json": lambda e, fx: score_inbox_rule(e, fx.get("accepted_domains", [])),
@@ -411,6 +465,7 @@ SCORERS = {
     "t1555_003_browser_credential_store.json": score_browser_credential_theft,
     "t1003_001_lsass_memory_access.json": score_lsass_memory_access,
     "t1110_failed_logon_burst.json": score_failed_logon_burst,
+    "t1562_001_defender_evasion.json": score_defender_evasion,
 }
 
 

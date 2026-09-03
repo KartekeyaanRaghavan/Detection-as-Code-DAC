@@ -1,0 +1,26 @@
+title: Defender exclusion added or tamper protection disabled
+id: b2a7c8c4-bd1a-4ea4-897b-9c7f68c340b1
+status: test
+description: Detects modifications to Windows Defender registry keys that add exclusions or disable protection features.
+author: Kartekeyaan Raghavan
+date: 2026-09-03
+tags:
+    - attack.defense_evasion
+    - attack.t1562.001
+logsource:
+    category: registry_set
+    product: windows
+detection:
+    selection_exclusions:
+        TargetObject|contains:
+            - '\Microsoft\Windows Defender\Exclusions\'
+    selection_tamper:
+        TargetObject|endswith:
+            - '\Microsoft\Windows Defender\Features\TamperProtection'
+            - '\Microsoft\Windows Defender\Real-Time Protection\DisableRealtimeMonitoring'
+            - '\Microsoft\Windows Defender\Real-Time Protection\DisableBehaviorMonitoring'
+            - '\Microsoft\Windows Defender\Real-Time Protection\DisableOnAccessProtection'
+    condition: selection_exclusions or selection_tamper
+falsepositives:
+    - Legitimate administrative actions via Intune or Group Policy
+level: high
