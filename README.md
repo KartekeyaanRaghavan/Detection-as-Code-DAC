@@ -1,4 +1,4 @@
-# applied-detection-engineering
+# Detection-as-Code-DAC
 
 Detection engineering portfolio: Sigma rules with compiled Defender XDR KQL, analyst notes,
 false positive guidance, response playbooks and validation evidence.
