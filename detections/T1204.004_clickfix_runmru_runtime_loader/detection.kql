@@ -34,7 +34,7 @@ DeviceRegistryEvents
     HasObfuscation  = cmd has_any (Obfuscation)
 | where HasInterpreter or HasDownloader or HasObfuscation
 | extend RiskScore =
-        (iff(HasInterpreter, 40, 0))
+        iff(HasInterpreter, 40, 0)
       + iff(HasDownloader, 30, 0)
       + iff(HasObfuscation, 40, 0)
       + iff(HasInterpreter and HasDownloader, 20, 0)    // interpreter + remote fetch = the ClickFix shape

@@ -33,7 +33,7 @@ DeviceEvents
     IsSystemLocation = Path startswith @"c:\windows\system32\" or Path startswith @"c:\windows\syswow64\",
     Unsigned = isempty(InitiatingProcessSignerType) or InitiatingProcessSignerType == "None"
 | extend RiskScore =
-        (iff(FromUserWritable, 40, 0))
+        iff(FromUserWritable, 40, 0)
       + iff(HasSuspiciousName, 35, 0)
       + iff(not(IsSystemLocation), 25, 0)
       + iff(Unsigned, 30, 0)

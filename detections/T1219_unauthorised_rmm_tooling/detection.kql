@@ -35,7 +35,7 @@ DeviceProcessEvents
     Unsigned         = ProcessVersionInfoCompanyName == ""
 | where FromUserWritable or DeliveryParent
 | extend RiskScore =
-        (iff(FromUserWritable, 40, 0))
+        iff(FromUserWritable, 40, 0)
       + iff(DeliveryParent, 35, 0)
       + iff(not(FromSanctioned), 15, 0)
       + iff(Unsigned, 20, 0)
