@@ -42,7 +42,7 @@ detections/<TECHNIQUE>_<name>/
 | [T1566.002](detections/T1566.002_phishing_click_credential_harvest) | Click through to a credential harvesting page from a non prevalent sender | Initial Access | `UrlClickEvents`, `EmailEvents` | Fixtures |
 | [T1656](detections/T1656_teams_impersonation_after_mail_bombing) | External Teams contact to a user who was just mail bombed | Initial Access | `EmailEvents`, `CloudAppEvents` | Fixtures |
 
-Ten of a planned fifteen. Two of these ten are correlation rules across two data sources rather
+This repository currently contains 10 fully validated detection rules. Two of these are correlation rules across two data sources rather
 than single table queries, which is deliberate: several of the techniques that matter most have no
 high fidelity single indicator.
 
