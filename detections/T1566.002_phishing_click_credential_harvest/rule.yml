@@ -1,0 +1,50 @@
+title: User Clicked Through To A Credential Harvesting Page From A Non Prevalent Sender
+id: 92b80140-1a01-4b68-9534-00128022dc23
+status: experimental
+description: |
+  Detects a user following a link from an inbound mail whose sender has no history in the
+  organisation, where the click was allowed rather than blocked, and a sign in attempt follows
+  shortly afterwards.
+
+  Delivery alerts are cheap and plentiful. What matters operationally is the far smaller set of
+  cases where protection did not hold: the mail arrived, the user clicked, the URL was not blocked
+  at click time, and the session that follows may be an attacker's rather than the user's.
+
+  Sender prevalence is the strongest cheap signal available. Credential harvesting almost always
+  originates from infrastructure the organisation has never corresponded with, while the mail
+  itself is designed to look ordinary.
+references:
+  - https://attack.mitre.org/techniques/T1566/002/
+  - https://attack.mitre.org/techniques/T1078/004/
+  - https://learn.microsoft.com/en-us/defender-xdr/advanced-hunting-urlclickevents-table
+author: Kartekeyaan Raghavan
+date: 2026/09/03
+tags:
+  - attack.initial-access
+  - attack.t1566.002
+  - attack.credential-access
+  - attack.t1078.004
+logsource:
+  product: m365
+  service: threat_management
+detection:
+  selection_click:
+    Workload:
+      - 'Email'
+      - 'Teams'
+    ActionType:
+      - 'ClickAllowed'
+      - 'UrlScanInProgress'
+      - 'UrlErrorPage'
+  filter_blocked:
+    ActionType:
+      - 'ClickBlocked'
+      - 'ClickBlockedByTenantPolicy'
+  condition: selection_click and not filter_blocked
+falsepositives:
+  - Marketing, recruitment and vendor mail from senders the organisation has not corresponded
+    with before, which is the dominant false positive class
+  - Security awareness phishing simulations, which must be excluded by their sending
+    infrastructure or they will dominate the alert volume
+  - Newly onboarded suppliers whose first mail is legitimately from an unknown sender
+level: medium

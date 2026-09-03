@@ -1,0 +1,79 @@
+{
+  "rule": "T1566.002_phishing_click_credential_harvest",
+  "table": "UrlClickEvents + EmailEvents",
+  "note": "Synthetic joined click and mail records. All addresses and domains are fabricated.",
+  "simulation_senders": ["awareness.lab.example"],
+  "known_sender_domains": ["vendor.lab.example", "partner.lab.example"],
+  "events": [
+    {
+      "_id": "tp_unknown_sender_auth_url_fast_click",
+      "ClickTime": "2026-09-01T09:04:00Z",
+      "MailTime": "2026-09-01T09:00:00Z",
+      "AccountUpn": "alice@lab.example",
+      "SenderFromDomain": "account-verify.invalid",
+      "SenderFromAddress": "no-reply@account-verify.invalid",
+      "Subject": "Action required: your password expires today",
+      "Url": "https://account-verify.invalid/login/o365",
+      "ActionType": "ClickAllowed",
+      "DeliveryAction": "Delivered",
+      "UrlCount": 3,
+      "_expected": { "fires": true, "severity": "High", "score": 100 }
+    },
+    {
+      "_id": "tp_unknown_sender_auth_url_slow",
+      "ClickTime": "2026-09-03T14:00:00Z",
+      "MailTime": "2026-09-01T14:00:00Z",
+      "AccountUpn": "bob@lab.example",
+      "SenderFromDomain": "secure-doc.invalid",
+      "SenderFromAddress": "share@secure-doc.invalid",
+      "Subject": "Document shared with you",
+      "Url": "https://secure-doc.invalid/signin/view",
+      "ActionType": "ClickAllowed",
+      "DeliveryAction": "Junked",
+      "UrlCount": 2,
+      "_expected": { "fires": true, "severity": "Medium", "score": 70 }
+    },
+    {
+      "_id": "tp_unknown_sender_generic_url",
+      "ClickTime": "2026-09-02T11:30:00Z",
+      "MailTime": "2026-09-02T08:00:00Z",
+      "AccountUpn": "carol@lab.example",
+      "SenderFromDomain": "newsletter-co.invalid",
+      "SenderFromAddress": "hello@newsletter-co.invalid",
+      "Subject": "Our September roundup",
+      "Url": "https://newsletter-co.invalid/issue/september",
+      "ActionType": "ClickAllowed",
+      "DeliveryAction": "Junked",
+      "UrlCount": 4,
+      "_expected": { "fires": true, "severity": "Low", "score": 40 }
+    },
+    {
+      "_id": "fp_known_vendor_domain",
+      "ClickTime": "2026-09-01T10:05:00Z",
+      "MailTime": "2026-09-01T10:00:00Z",
+      "AccountUpn": "dave@lab.example",
+      "SenderFromDomain": "vendor.lab.example",
+      "SenderFromAddress": "billing@vendor.lab.example",
+      "Subject": "Your invoice is ready",
+      "Url": "https://vendor.lab.example/portal/login",
+      "ActionType": "ClickAllowed",
+      "DeliveryAction": "Delivered",
+      "UrlCount": 2,
+      "_expected": { "fires": false }
+    },
+    {
+      "_id": "fp_simulation_sender",
+      "ClickTime": "2026-09-01T13:02:00Z",
+      "MailTime": "2026-09-01T13:00:00Z",
+      "AccountUpn": "erin@lab.example",
+      "SenderFromDomain": "awareness.lab.example",
+      "SenderFromAddress": "training@awareness.lab.example",
+      "Subject": "Urgent: verify your account",
+      "Url": "https://awareness.lab.example/login/test",
+      "ActionType": "ClickAllowed",
+      "DeliveryAction": "Delivered",
+      "UrlCount": 1,
+      "_expected": { "fires": false }
+    }
+  ]
+}

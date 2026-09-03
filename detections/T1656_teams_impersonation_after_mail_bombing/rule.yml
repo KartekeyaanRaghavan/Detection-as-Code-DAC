@@ -1,0 +1,52 @@
+title: External Teams Contact To A User Who Was Just Mail Bombed
+id: 24254b29-857b-4011-ac75-5ec7a51855e4
+status: experimental
+description: |
+  Detects the two stage help desk impersonation pattern: a victim is flooded with subscription
+  and registration mail, then contacted over Microsoft Teams by an external account presenting
+  itself as IT support offering to fix the problem.
+
+  Neither half is reliably malicious alone. Mail bombing on its own looks like a user who signed
+  up for too many newsletters. An external Teams message on its own is normal in any tenant that
+  allows federation. The intrusion is the sequence: the flood manufactures a problem, and the
+  impersonated help desk arrives with the solution, which is remote access.
+
+  Because the operator needs the victim to still be panicking, the second stage follows the first
+  within hours. That short window is what makes the correlation precise.
+references:
+  - https://attack.mitre.org/techniques/T1656/
+  - https://attack.mitre.org/techniques/T1585/002/
+  - https://attack.mitre.org/techniques/T1219/
+author: Kartekeyaan Raghavan
+date: 2026/09/03
+tags:
+  - attack.initial-access
+  - attack.t1656
+  - attack.resource-development
+  - attack.t1585.002
+logsource:
+  product: m365
+  service: threat_management
+detection:
+  selection_external_chat:
+    Operation:
+      - 'ChatCreated'
+      - 'MessageSent'
+    CommunicationType: 'ExternalFederated'
+  selection_helpdesk_persona:
+    SenderDisplayName|contains:
+      - 'help desk'
+      - 'helpdesk'
+      - 'it support'
+      - 'it desk'
+      - 'service desk'
+      - 'support team'
+      - 'technical support'
+      - 'security team'
+  condition: selection_external_chat and selection_helpdesk_persona
+falsepositives:
+  - Genuine federated support from a managed service provider or an outsourced help desk, which
+    must be allow listed by sending tenant rather than by display name
+  - Vendor support staff whose display name legitimately contains "support"
+  - Marketing and sales outreach using a support themed display name
+level: high

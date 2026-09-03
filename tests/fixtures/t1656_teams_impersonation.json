@@ -1,0 +1,59 @@
+{
+  "rule": "T1656_teams_impersonation_after_mail_bombing",
+  "table": "EmailEvents + CloudAppEvents",
+  "note": "Synthetic correlated pairs. Each event holds the mail flood summary and the external chat that followed.",
+  "trusted_support_tenants": ["msp.lab.example"],
+  "bomb_threshold": 40,
+  "distinct_sender_domains": 15,
+  "correlation_window_minutes": 480,
+  "events": [
+    {
+      "_id": "tp_helpdesk_persona_20min",
+      "RecipientEmailAddress": "alice@lab.example",
+      "MailCount": 210,
+      "SenderDomains": 60,
+      "BombEnd": "2026-09-01T10:00:00Z",
+      "ChatTime": "2026-09-01T10:20:00Z",
+      "SenderUpn": "support@newtenant.invalid",
+      "SenderDomain": "newtenant.invalid",
+      "SenderDisplay": "IT Help Desk",
+      "_expected": { "fires": true, "severity": "High", "score": 120 }
+    },
+    {
+      "_id": "tp_real_name_persona_3h",
+      "RecipientEmailAddress": "bob@lab.example",
+      "MailCount": 90,
+      "SenderDomains": 30,
+      "BombEnd": "2026-09-01T09:00:00Z",
+      "ChatTime": "2026-09-01T12:00:00Z",
+      "SenderUpn": "j.mitchell@othertenant.invalid",
+      "SenderDomain": "othertenant.invalid",
+      "SenderDisplay": "James Mitchell",
+      "_expected": { "fires": true, "severity": "Medium", "score": 60 }
+    },
+    {
+      "_id": "fp_trusted_msp",
+      "RecipientEmailAddress": "carol@lab.example",
+      "MailCount": 120,
+      "SenderDomains": 40,
+      "BombEnd": "2026-09-01T11:00:00Z",
+      "ChatTime": "2026-09-01T11:30:00Z",
+      "SenderUpn": "desk@msp.lab.example",
+      "SenderDomain": "msp.lab.example",
+      "SenderDisplay": "MSP Service Desk",
+      "_expected": { "fires": false }
+    },
+    {
+      "_id": "fp_flood_no_contact",
+      "RecipientEmailAddress": "dave@lab.example",
+      "MailCount": 300,
+      "SenderDomains": 85,
+      "BombEnd": "2026-09-01T14:00:00Z",
+      "ChatTime": null,
+      "SenderUpn": null,
+      "SenderDomain": null,
+      "SenderDisplay": null,
+      "_expected": { "fires": false }
+    }
+  ]
+}

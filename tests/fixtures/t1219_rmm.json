@@ -1,0 +1,74 @@
+{
+  "rule": "T1219_unauthorised_rmm_tooling",
+  "table": "DeviceProcessEvents",
+  "note": "Synthetic events. Device names and accounts are fabricated.",
+  "sanctioned_rmm": [],
+  "sanctioned_paths": ["c:\\program files", "c:\\program files (x86)"],
+  "events": [
+    {
+      "_id": "tp_screenconnect_appdata_from_browser",
+      "Timestamp": "2026-09-01T10:12:00Z",
+      "DeviceName": "lab-win11-01",
+      "AccountName": "alice",
+      "FileName": "ScreenConnect.WindowsClient.exe",
+      "FolderPath": "C:\\Users\\alice\\AppData\\Local\\Temp\\ScreenConnect.WindowsClient.exe",
+      "ProcessCommandLine": "ScreenConnect.WindowsClient.exe \"?e=Access&y=Guest\"",
+      "ProcessVersionInfoCompanyName": "",
+      "InitiatingProcessFileName": "msedge.exe",
+      "InitiatingProcessCommandLine": "msedge.exe --type=renderer",
+      "_expected": { "fires": true, "severity": "High", "score": 110 }
+    },
+    {
+      "_id": "tp_anydesk_downloads_powershell",
+      "Timestamp": "2026-09-01T11:40:00Z",
+      "DeviceName": "lab-win11-02",
+      "AccountName": "bob",
+      "FileName": "AnyDesk.exe",
+      "FolderPath": "C:\\Users\\bob\\Downloads\\AnyDesk.exe",
+      "ProcessCommandLine": "AnyDesk.exe --silent --start-with-win",
+      "ProcessVersionInfoCompanyName": "AnyDesk Software GmbH",
+      "InitiatingProcessFileName": "powershell.exe",
+      "InitiatingProcessCommandLine": "powershell.exe -nop -w hidden -File C:\\Users\\bob\\AppData\\Local\\s.ps1",
+      "_expected": { "fires": true, "severity": "High", "score": 90 }
+    },
+    {
+      "_id": "tp_rustdesk_public_unsigned",
+      "Timestamp": "2026-09-01T15:05:00Z",
+      "DeviceName": "lab-win11-03",
+      "AccountName": "carol",
+      "FileName": "RustDesk.exe",
+      "FolderPath": "C:\\Users\\Public\\RustDesk.exe",
+      "ProcessCommandLine": "RustDesk.exe --connect 123456789",
+      "ProcessVersionInfoCompanyName": "",
+      "InitiatingProcessFileName": "explorer.exe",
+      "InitiatingProcessCommandLine": "explorer.exe",
+      "_expected": { "fires": true, "severity": "High", "score": 110 }
+    },
+    {
+      "_id": "fp_teamviewer_program_files",
+      "Timestamp": "2026-09-01T08:00:00Z",
+      "DeviceName": "lab-win11-04",
+      "AccountName": "SYSTEM",
+      "FileName": "TeamViewer.exe",
+      "FolderPath": "C:\\Program Files\\TeamViewer\\TeamViewer.exe",
+      "ProcessCommandLine": "TeamViewer.exe",
+      "ProcessVersionInfoCompanyName": "TeamViewer Germany GmbH",
+      "InitiatingProcessFileName": "services.exe",
+      "InitiatingProcessCommandLine": "services.exe",
+      "_expected": { "fires": false }
+    },
+    {
+      "_id": "fp_anydesk_dev_downloads",
+      "Timestamp": "2026-09-01T16:30:00Z",
+      "DeviceName": "lab-win11-05",
+      "AccountName": "dave",
+      "FileName": "AnyDesk.exe",
+      "FolderPath": "C:\\Users\\dave\\Downloads\\AnyDesk.exe",
+      "ProcessCommandLine": "AnyDesk.exe",
+      "ProcessVersionInfoCompanyName": "AnyDesk Software GmbH",
+      "InitiatingProcessFileName": "explorer.exe",
+      "InitiatingProcessCommandLine": "explorer.exe",
+      "_expected": { "fires": true, "severity": "High", "score": 90 }
+    }
+  ]
+}

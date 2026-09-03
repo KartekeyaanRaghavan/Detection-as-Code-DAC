@@ -1,0 +1,87 @@
+// Remote monitoring and management tool executed from a user writable path
+// Platform : Microsoft Defender XDR - Advanced Hunting
+// Table    : DeviceProcessEvents, DeviceNetworkEvents
+// ATT&CK   : T1219 (Remote Access Software)
+// Author   : Kartekeyaan Raghavan
+//
+// TUNE: SanctionedRmm and SanctionedPaths must reflect what your organisation actually deploys.
+// If your IT team uses ScreenConnect legitimately, name it here rather than deleting the rule.
+
+let lookback         = 30d;
+let SanctionedRmm    = dynamic([]);                                   // TUNE e.g. ["TeamViewer.exe"]
+let SanctionedPaths  = dynamic([@"c:\program files", @"c:\program files (x86)"]);  // TUNE
+let RmmBinaries      = dynamic([
+    "screenconnect.clientservice.exe", "screenconnect.windowsclient.exe",
+    "anydesk.exe", "teamviewer.exe", "ateraagent.exe", "splashtopstreamer.exe",
+    "syncro.exe", "rustdesk.exe", "ngrok.exe", "gotohttp.exe", "remoteutilities.exe",
+    "supremo.exe", "dwagent.exe", "meshagent.exe", "action1_agent.exe"
+]);
+let UserWritable     = dynamic([@"\appdata\", @"\users\public\", @"\downloads\",
+                                @"\temp\", @"\programdata\"]);
+let DeliveryParents  = dynamic([
+    "powershell.exe", "pwsh.exe", "cmd.exe", "wscript.exe", "cscript.exe",
+    "mshta.exe", "msiexec.exe", "outlook.exe", "winword.exe", "excel.exe",
+    "chrome.exe", "msedge.exe", "firefox.exe", "explorer.exe"
+]);
+DeviceProcessEvents
+| where Timestamp > ago(lookback)
+| where tolower(FileName) in (RmmBinaries)
+| where not(tolower(FileName) in (SanctionedRmm))
+| extend Path = tolower(FolderPath)
+| extend
+    FromUserWritable = Path has_any (UserWritable),
+    FromSanctioned   = Path has_any (SanctionedPaths),
+    DeliveryParent   = tolower(InitiatingProcessFileName) in (DeliveryParents),
+    Unsigned         = ProcessVersionInfoCompanyName == ""
+| where FromUserWritable or DeliveryParent
+| extend RiskScore =
+        (iff(FromUserWritable, 40, 0))
+      + (iff(DeliveryParent, 35, 0))
+      + (iff(not(FromSanctioned), 15, 0))
+      + (iff(Unsigned, 20, 0))
+| extend Severity = case(RiskScore >= 75, "High", RiskScore >= 40, "Medium", "Low")
+| project
+    Timestamp, Severity, RiskScore, DeviceName,
+    Account            = AccountName,
+    Rmm                = FileName,
+    RmmPath            = FolderPath,
+    CommandLine        = ProcessCommandLine,
+    Signer             = ProcessVersionInfoCompanyName,
+    Parent             = InitiatingProcessFileName,
+    ParentCommandLine  = InitiatingProcessCommandLine,
+    FromUserWritable, DeliveryParent,
+    ReportId, DeviceId
+| order by RiskScore desc, Timestamp desc
+
+
+// =====================================================================================
+// ENRICHMENT: where is the agent calling home to
+//
+// The relay endpoint is what separates a sanctioned deployment from an operator's. A
+// ScreenConnect client pointing at an instance your IT team does not own is conclusive.
+// =====================================================================================
+//
+// let target = "lab-win11-01";
+// DeviceNetworkEvents
+// | where Timestamp > ago(7d)
+// | where DeviceName =~ target
+// | where InitiatingProcessFileName has_any ("screenconnect", "anydesk", "teamviewer", "rustdesk")
+// | summarize Connections = count(), FirstSeen = min(Timestamp), LastSeen = max(Timestamp)
+//     by InitiatingProcessFileName, RemoteUrl, RemoteIP, RemotePort
+// | order by Connections desc
+
+
+// =====================================================================================
+// BASELINE: run this before deploying, to find what RMM already exists in the estate
+//
+// Deploying this rule without knowing your own footprint produces an unusable alert
+// volume on day one. Establish the baseline, allow list it explicitly, then deploy.
+// =====================================================================================
+//
+// DeviceProcessEvents
+// | where Timestamp > ago(30d)
+// | where tolower(FileName) in (RmmBinaries)
+// | summarize Executions = count(), Devices = dcount(DeviceId),
+//             Paths = make_set(FolderPath, 15), Signers = make_set(ProcessVersionInfoCompanyName, 10)
+//     by FileName
+// | order by Devices desc

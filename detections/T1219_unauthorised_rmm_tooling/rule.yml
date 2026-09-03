@@ -1,0 +1,69 @@
+title: Remote Monitoring And Management Tool Executed From A User Writable Path
+id: 43562cbc-8b92-4a09-8ca4-b7528852a8b2
+status: experimental
+description: |
+  Detects execution of remote monitoring and management (RMM) software from a user writable
+  location, or under a parent process consistent with delivery rather than installation.
+
+  RMM tooling is the preferred remote access method for a large share of intrusions, including
+  ransomware precursors, because it is signed, frequently already allow listed, and blends into
+  the noise of legitimate IT operations. ScreenConnect, AnyDesk, Atera, Splashtop and TeamViewer
+  all appear routinely in real incidents.
+
+  The detection problem is that the binaries themselves are legitimate. What distinguishes an
+  intrusion is where the binary ran from and what launched it. A sanctioned deployment installs
+  to Program Files under a management agent. An operator runs it out of a user profile directory
+  after a phishing lure, typically with an embedded configuration that points at their own relay.
+references:
+  - https://attack.mitre.org/techniques/T1219/
+  - https://www.cisa.gov/news-events/cybersecurity-advisories/aa23-025a
+author: Kartekeyaan Raghavan
+date: 2026/09/03
+tags:
+  - attack.command-and-control
+  - attack.t1219
+  - attack.initial-access
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_rmm_image:
+    Image|endswith:
+      - '\ScreenConnect.ClientService.exe'
+      - '\ScreenConnect.WindowsClient.exe'
+      - '\AnyDesk.exe'
+      - '\TeamViewer.exe'
+      - '\AteraAgent.exe'
+      - '\SplashtopStreamer.exe'
+      - '\Syncro.exe'
+      - '\RustDesk.exe'
+      - '\ngrok.exe'
+  selection_user_writable:
+    Image|contains:
+      - '\AppData\'
+      - '\Users\Public\'
+      - '\Downloads\'
+      - '\Temp\'
+      - '\ProgramData\'
+  selection_delivery_parent:
+    ParentImage|endswith:
+      - '\powershell.exe'
+      - '\pwsh.exe'
+      - '\cmd.exe'
+      - '\wscript.exe'
+      - '\cscript.exe'
+      - '\mshta.exe'
+      - '\msiexec.exe'
+      - '\outlook.exe'
+      - '\winword.exe'
+      - '\excel.exe'
+      - '\chrome.exe'
+      - '\msedge.exe'
+  condition: selection_rmm_image and (selection_user_writable or selection_delivery_parent)
+falsepositives:
+  - Sanctioned RMM deployed by the organisation, which should install under Program Files
+  - Managed service providers with legitimate remote access, which must be allow listed by
+    binary path and signing certificate rather than by process name
+  - Users self installing remote access to reach a home machine, which is a policy violation
+    rather than an intrusion but still needs following up
+level: high
