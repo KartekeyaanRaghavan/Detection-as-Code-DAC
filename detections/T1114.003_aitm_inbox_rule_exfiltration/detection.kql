@@ -1,41 +1,37 @@
-// T1114.003 - Mailbox Rule Created to Forward or Hide Mail After Compromise
-// Table: CloudAppEvents (Exchange Online audit records in RawEventData JSON)
-
+// T1114.003 - AiTM / Inbox Rule Exfiltration via M365 CloudAppEvents
 let lookback = 30d;
 let AcceptedDomains = dynamic(["contoso.com", "contoso.onmicrosoft.com"]);
-let SuppressionFolders = dynamic([
-    "RSS Feeds", "RSS Subscriptions", "Conversation History",
-    "Deleted Items", "Junk Email", "Archive", "Notes", "Sync Issues"
-]);
-let HighRiskKeywords = dynamic([
-    "invoice", "payment", "remittance", "wire", "bank", "swift", "iban",
-    "purchase order", "vendor", "supplier", "password", "verify", "mfa", "otp"
-]);
+let SuppressionFolders = dynamic(["RSS Feeds", "Deleted Items", "Junk Email", "Archive"]);
+let HighRiskKeywords = dynamic(["invoice", "payment", "wire", "bank", "password", "mfa", "otp"]);
 
 CloudAppEvents
 | where Timestamp > ago(lookback)
 | where ActionType in ("New-InboxRule", "Set-InboxRule", "UpdateInboxRules")
 | extend Raw = parse_json(RawEventData)
 | extend Params = Raw.Parameters
-| extend
-    RuleName      = tostring(Params.Name),
-    ForwardTarget = tolower(strcat(tostring(Params.ForwardTo), " ", tostring(Params.ForwardAsAttachmentTo), " ", tostring(Params.RedirectTo))),
-    MoveToFolder  = tostring(Params.MoveToFolder),
-    DeleteMessage = tostring(Params.DeleteMessage),
-    MarkAsRead    = tostring(Params.MarkAsRead),
-    KeywordBlob   = tolower(strcat(tostring(Params.SubjectContainsWords), " ", tostring(Params.BodyContainsWords), " ", tostring(Params.SubjectOrBodyContainsWords)))
-| extend
-    ForwardsExternally      = isnotempty(trim(" ", ForwardTarget)) and not(ForwardTarget has_any (AcceptedDomains)),
-    SuppressesMail          = MoveToFolder in~ (SuppressionFolders) or DeleteMessage =~ "True",
-    TargetsHighRiskKeywords = KeywordBlob has_any (HighRiskKeywords)
+| extend RuleName = tostring(Params.Name)
+| extend ForwardTo = tostring(Params.ForwardTo)
+| extend RedirectTo = tostring(Params.RedirectTo)
+| extend MoveToFolder = tostring(Params.MoveToFolder)
+| extend DeleteMessage = tostring(Params.DeleteMessage)
+| extend MarkAsRead = tostring(Params.MarkAsRead)
+| extend TargetRecipient = coalesce(ForwardTo, RedirectTo)
+// Threat signals
+| extend ForwardsExternally = isnotempty(TargetRecipient) and not(TargetRecipient has_any (AcceptedDomains))
+| extend SuppressesMail = MoveToFolder in~ (SuppressionFolders) or DeleteMessage =~ "True"
+| extend TargetsHighRiskKeywords = RawEventData has_any (HighRiskKeywords)
 | where ForwardsExternally or SuppressesMail
+// Risk Scoring
 | extend RiskScore =
       iff(ForwardsExternally, 50, 0)
     + iff(SuppressesMail, 30, 0)
     + iff(TargetsHighRiskKeywords, 20, 0)
     + iff(MarkAsRead =~ "True", 10, 0)
-    + iff(isempty(trim(" ", RuleName)) or RuleName in (".", "..", "-", "_"), 15, 0)
-| extend Severity = case(RiskScore >= 80, "High", RiskScore >= 50, "Medium", "Low")
-| project Timestamp, Severity, RiskScore, Actor = AccountDisplayName, IPAddress,
-          RuleName, ForwardTarget, MoveToFolder, DeleteMessage, KeywordBlob
+    + iff(RuleName in ("", ".", "..", "-", "_"), 15, 0)
+| extend Severity = case(
+    RiskScore >= 80, "High",
+    RiskScore >= 50, "Medium",
+    "Low"
+)
+| project Timestamp, Severity, RiskScore, Actor = AccountDisplayName, IPAddress, RuleName, TargetRecipient, MoveToFolder, DeleteMessage
 | order by RiskScore desc, Timestamp desc
