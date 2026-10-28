@@ -60,10 +60,19 @@ def main() -> int:
                   f"detection.kql is hand written")
             continue
 
-        result = subprocess.run(
-            [sys.executable, "-m", "sigma.cli.main", "convert", "-t", TARGET, "-p", PIPELINE, str(path)],
-            capture_output=True, text=True,
-        )
+        # pySigma v1.0+ moved SigmaTransformationError to sigma.exceptions, but pysigma-backend-kusto
+        # still imports it from sigma.processing.transformations. We shim it so conversion never breaks.
+        cmd = [
+            sys.executable,
+            "-c",
+            "import sys, sigma.exceptions, sigma.processing.transformations; "
+            "sigma.processing.transformations.SigmaTransformationError = sigma.exceptions.SigmaTransformationError; "
+            "from sigma.cli.main import main; "
+            "sys.argv = ['sigma'] + sys.argv[1:]; "
+            "main()",
+            "convert", "-t", TARGET, "-p", PIPELINE, str(path)
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True)
         if result.returncode != 0:
             failures.append(f"{rel}: {result.stderr.strip().splitlines()[-1] if result.stderr.strip() else 'unknown error'}")
             print(f"  FAIL  {rel}")

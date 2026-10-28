@@ -19,7 +19,7 @@ jobs:
       - name: Install tooling
         run: |
           python -m pip install --upgrade pip
-          pip install pyyaml sigma-cli pysigma-backend-kusto
+          pip install pyyaml "pysigma>=1.0.0" "sigma-cli>=3.0.0" "pysigma-backend-kusto>=1.0.0"
 
       - name: Every detection has its four files
         run: |
