@@ -24,7 +24,8 @@ DeviceRegistryEvents
 | extend
     HasInterpreter = cmd has_any (Interpreters),
     HasDownloader  = cmd has_any (Downloaders),
-    HasObfuscation = cmd has_any (Obfuscation)
+    HasObfuscation = cmd has_any (Obfuscation),
+    HasBase64Blob  = cmd matches regex @"[a-z0-9+/]{80,}={0,2}"
 | where HasInterpreter or HasDownloader or HasObfuscation
 | extend RiskScore =
       iff(HasInterpreter, 40, 0)
@@ -32,7 +33,7 @@ DeviceRegistryEvents
     + iff(HasObfuscation, 40, 0)
     + iff(HasInterpreter and HasDownloader, 20, 0)
     + iff(strlen(TypedCommand) > 120, 20, 0)
-    + iff(cmd matches regex @"[a-z0-9+/]{80,}={0,2}", 30, 0)
+    + iff(HasBase64Blob, 30, 0)
 | extend Severity = case(RiskScore >= 90, "High", RiskScore >= 50, "Medium", "Low")
 | project Timestamp, Severity, RiskScore, DeviceName,
           Account = InitiatingProcessAccountUpn, TypedCommand, CommandLength = strlen(TypedCommand)

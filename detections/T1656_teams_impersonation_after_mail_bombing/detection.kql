@@ -27,8 +27,8 @@ let externalChats = CloudAppEvents
 | extend
     SenderUpn     = tostring(Raw.SenderUPN),
     SenderDisplay = tolower(tostring(Raw.SenderDisplayName)),
-    SenderDomain  = tolower(tostring(split(tostring(Raw.SenderUPN), "@")[1])),
     RecipientEmailAddress = tolower(tostring(Raw.ParticipantInfo.ParticipatingSIPs))
+| extend SenderDomain = tolower(tostring(split(SenderUpn, "@")[1]))
 | where not(SenderDomain in (TrustedSupportTenants))
 | project ChatTime = Timestamp, SenderUpn, SenderDomain, SenderDisplay, RecipientEmailAddress;
 
