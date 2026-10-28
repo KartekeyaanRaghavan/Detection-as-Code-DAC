@@ -36,7 +36,7 @@ Requires a Microsoft 365 developer tenant. Do not run against a production tenan
 
 3. Mailbox audit records surface in `CloudAppEvents` with a lag of roughly 30 to 90 minutes.
    Do not conclude the rule failed inside that window.
-4. Confirm the hit scores 110 and reports `ForwardsExternally = true`,
+4. Confirm the hit scores 125 and reports `ForwardsExternally = true`,
    `SuppressesMail = true`, `TargetsHighRiskKeywords = true`.
 
 ## Atomic Red Team

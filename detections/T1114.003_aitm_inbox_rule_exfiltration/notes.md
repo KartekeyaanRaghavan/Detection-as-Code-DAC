@@ -39,7 +39,7 @@ compromise until disproven, not as a lead.
 
 ## Expected FPs, and how to actually clear them
 
-Ranked by how often they appeared in production:
+Common false-positive patterns to check during triage:
 
 1. **Delegate and shared mailbox forwarding.** Real, common, and the reason the accepted-domain
    list matters. Internal forward targets are excluded by design. Do not "fix" a noisy rule by

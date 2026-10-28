@@ -1,146 +1,53 @@
-// Browser credential store copied out of its profile directory
-// Platform : Microsoft Defender XDR - Advanced Hunting
-// Table    : DeviceFileEvents, DeviceProcessEvents, DeviceNetworkEvents
-// ATT&CK   : T1555.003 (Credentials from Web Browsers)
-// Author   : Kartekeyaan Raghavan
-//
-// The anchor is the COPY, not the read. Defender for Endpoint does not emit a general file
-// read event, so there is no telemetry for a store being read in place. Chromium holds a lock
-// on Login Data while running, so the working technique is to copy the store out first, and
-// that copy is a FileCreated. See notes.md for what this costs us.
-//
-// This scores a PROCESS over a short window, not a single file. One copy of one store is a
-// backup agent. Four stores across two browser vendors in ninety seconds is a stealer.
-//
-// TUNE: AllowedCopiers is empty on purpose. Your backup agent, DLP product and password
-// manager will all appear here on day one. Run the baseline query at the bottom first.
+// T1555.003 - Browser Credential Store Copied Out of Profile Directory
+// Table: DeviceFileEvents
 
-let lookback        = 30d;
-let sweepWindow     = 5m;                                  // TUNE: stealers finish in seconds
-let AllowedCopiers  = dynamic([]);                         // TUNE e.g. ["backupagent.exe"]
-let ProfileDirs     = dynamic([@"\user data\", @"\mozilla\firefox\profiles\",
-                               @"\opera software\", @"\vivaldi\"]);
-let BrowserPaths    = dynamic([
+let lookback = 30d;
+let sweepWindow = 5m;
+let AllowedCopiers = dynamic([]);
+let ProfileDirs = dynamic([@"\user data\", @"\mozilla\firefox\profiles\", @"\opera software\", @"\vivaldi\"]);
+let BrowserPaths = dynamic([
     @"\program files\google\chrome\", @"\program files (x86)\google\chrome\",
     @"\program files\microsoft\edge\", @"\program files (x86)\microsoft\edge\",
-    @"\program files\mozilla firefox\", @"\program files\bravesoftware\",
-    @"\program files (x86)\bravesoftware\"
+    @"\program files\mozilla firefox\", @"\program files\bravesoftware\", @"\program files (x86)\bravesoftware\"
 ]);
-let BrowserNames    = dynamic(["chrome.exe", "msedge.exe", "firefox.exe", "brave.exe",
-                               "opera.exe", "vivaldi.exe"]);
-// Without one of these the rest of the loot is DPAPI encrypted and close to worthless.
-let MasterKeyFiles  = dynamic(["local state", "key4.db", "key3.db"]);
-let ChromiumFiles   = dynamic(["login data", "login data for account", "web data",
-                               "local state"]);
-let GeckoFiles      = dynamic(["logins.json", "key4.db", "key3.db", "cookies.sqlite",
-                               "signons.sqlite"]);
-let UserWritable    = dynamic([@"\appdata\", @"\users\public\", @"\downloads\",
-                               @"\temp\", @"\programdata\"]);
+let BrowserNames = dynamic(["chrome.exe", "msedge.exe", "firefox.exe", "brave.exe", "opera.exe", "vivaldi.exe"]);
+let MasterKeyFiles = dynamic(["local state", "key4.db", "key3.db"]);
+let ChromiumFiles = dynamic(["login data", "login data for account", "web data", "local state"]);
+let GeckoFiles = dynamic(["logins.json", "key4.db", "key3.db", "cookies.sqlite", "signons.sqlite"]);
+let UserWritable = dynamic([@"\appdata\", @"\users\public\", @"\downloads\", @"\temp\", @"\programdata\"]);
+
 DeviceFileEvents
 | where Timestamp > ago(lookback)
 | where ActionType in ("FileCreated", "FileModified", "FileRenamed")
 | extend Store = tolower(FileName)
 | where Store in (ChromiumFiles) or Store in (GeckoFiles)
-// The store sitting in its own profile directory is the entire benign population.
 | where not(tolower(FolderPath) has_any (ProfileDirs))
 | where not(tolower(InitiatingProcessFileName) in (AllowedCopiers))
-| extend Bucket = bin(Timestamp, sweepWindow)
 | summarize
     FirstSeen      = min(Timestamp),
-    LastSeen       = max(Timestamp),
     StoresTaken    = make_set(Store, 20),
     DistinctStores = dcount(Store),
-    Copies         = count(),
     LandedIn       = make_set(FolderPath, 10),
     CopierPath     = any(InitiatingProcessFolderPath),
     CopierSigner   = any(InitiatingProcessVersionInfoCompanyName),
-    CopierCommand  = any(InitiatingProcessCommandLine),
-    CopierPid      = any(InitiatingProcessId),
     Account        = any(InitiatingProcessAccountName)
-    by DeviceId, DeviceName, Copier = InitiatingProcessFileName, Bucket
+  by DeviceId, DeviceName, Copier = InitiatingProcessFileName, bin(Timestamp, sweepWindow)
 | extend
-    TakesMasterKey  = array_length(set_intersect(StoresTaken, MasterKeyFiles)) > 0,
-    HitsChromium    = array_length(set_intersect(StoresTaken, ChromiumFiles)) > 0,
-    HitsGecko       = array_length(set_intersect(StoresTaken, GeckoFiles)) > 0,
-    LandedInTemp    = tolower(tostring(LandedIn)) has_any (UserWritable),
-    CopierInTemp    = tolower(CopierPath) has_any (UserWritable),
-    CopierUnsigned  = isempty(CopierSigner),
-    // A process wearing a browser's name while not living in a browser's directory.
-    CopierMasquerades = tolower(Copier) in (BrowserNames)
-                        and not(tolower(CopierPath) has_any (BrowserPaths))
-| extend MultiVendor = HitsChromium and HitsGecko
-| extend RiskScore =
-        35                                                 // a store outside its profile dir
-      + iff(TakesMasterKey,     30, 0)                   // without this the loot is encrypted
-      + iff(DistinctStores >= 3, 25, 0)                  // a sweep, not a single copy
-      + iff(CopierInTemp,       25, 0)
-      + iff(MultiVendor,        20, 0)                   // no legitimate tool needs both
-      + iff(CopierUnsigned,     20, 0)
-      + iff(LandedInTemp,       15, 0)
-      + iff(CopierMasquerades,  30, 0)
+    TakesMasterKey    = array_length(set_intersect(StoresTaken, MasterKeyFiles)) > 0,
+    MultiVendor       = array_length(set_intersect(StoresTaken, ChromiumFiles)) > 0 and array_length(set_intersect(StoresTaken, GeckoFiles)) > 0,
+    LandedInTemp      = tolower(tostring(LandedIn)) has_any (UserWritable),
+    CopierInTemp      = tolower(CopierPath) has_any (UserWritable),
+    CopierUnsigned    = isempty(CopierSigner),
+    CopierMasquerades = tolower(Copier) in (BrowserNames) and not(tolower(CopierPath) has_any (BrowserPaths))
+| extend RiskScore = 35
+    + iff(TakesMasterKey, 30, 0)
+    + iff(DistinctStores >= 3, 25, 0)
+    + iff(CopierInTemp, 25, 0)
+    + iff(MultiVendor, 20, 0)
+    + iff(CopierUnsigned, 20, 0)
+    + iff(LandedInTemp, 15, 0)
+    + iff(CopierMasquerades, 30, 0)
 | extend Severity = case(RiskScore >= 95, "High", RiskScore >= 60, "Medium", "Low")
-| project
-    Timestamp = FirstSeen, LastSeen, Severity, RiskScore,
-    DeviceName, Account, Copier, CopierPath, CopierSigner, CopierCommand,
-    DistinctStores, StoresTaken, Copies, LandedIn,
-    TakesMasterKey, MultiVendor, CopierInTemp, CopierUnsigned, CopierMasquerades,
-    DeviceId, CopierPid
+| project Timestamp = FirstSeen, Severity, RiskScore, DeviceName, Account,
+          Copier, CopierPath, DistinctStores, StoresTaken
 | order by RiskScore desc, Timestamp desc
-
-
-// =====================================================================================
-// SECOND ANCHOR: the LOLBin copy, which leaves no file with a recognisable name
-//
-// A hands on operator copies the store to a renamed destination, which defeats the query
-// above entirely. The command line still names the source. Run this alongside, not instead.
-// =====================================================================================
-//
-// DeviceProcessEvents
-// | where Timestamp > ago(30d)
-// | where ProcessCommandLine has_any ("Login Data", "Local State", "logins.json",
-//                                     "key4.db", "cookies.sqlite", @"\User Data\Default")
-// | where FileName in~ ("esentutl.exe", "cmd.exe", "powershell.exe", "pwsh.exe",
-//                       "robocopy.exe", "xcopy.exe", "certutil.exe", "tar.exe")
-// | project Timestamp, DeviceName, AccountName, FileName, ProcessCommandLine,
-//           InitiatingProcessFileName, InitiatingProcessCommandLine, DeviceId, ReportId
-// | order by Timestamp desc
-
-
-// =====================================================================================
-// ENRICHMENT: what the copier did next
-//
-// Theft is only half the technique. A stealer archives and exfiltrates within minutes. A
-// copy followed by an archive write and an upload from the same process closes the case.
-// =====================================================================================
-//
-// let target = "lab-win11-01";
-// let copier = "svchost.exe";
-// union
-//   ( DeviceFileEvents
-//     | where Timestamp > ago(1d) and DeviceName =~ target
-//     | where InitiatingProcessFileName =~ copier
-//     | where FileName has_any (".zip", ".7z", ".rar")
-//     | project Timestamp, Event = "archive written", Detail = FolderPath ),
-//   ( DeviceNetworkEvents
-//     | where Timestamp > ago(1d) and DeviceName =~ target
-//     | where InitiatingProcessFileName =~ copier
-//     | project Timestamp, Event = "network", Detail = strcat(RemoteUrl, " ", RemoteIP) )
-// | order by Timestamp asc
-
-
-// =====================================================================================
-// BASELINE: which processes already move these files around your estate
-//
-// Run this before deploying. Backup agents and profile roaming products copy whole trees
-// and will dominate the output. Allow list them by name, then deploy.
-// =====================================================================================
-//
-// DeviceFileEvents
-// | where Timestamp > ago(30d)
-// | where tolower(FileName) in (ChromiumFiles) or tolower(FileName) in (GeckoFiles)
-// | where not(tolower(FolderPath) has_any (ProfileDirs))
-// | summarize Copies = count(), Devices = dcount(DeviceId),
-//             Stores = make_set(FileName, 10),
-//             Signer = any(InitiatingProcessVersionInfoCompanyName)
-//     by InitiatingProcessFileName
-// | order by Devices desc

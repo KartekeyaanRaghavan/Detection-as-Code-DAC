@@ -74,7 +74,7 @@ definition; the KQL is the deployable artefact.
 
 The kusto backend's `microsoft_xdr` pipeline maps Sigma logsource *categories* to the `Device*` tables. 
 
-1. **Microsoft 365 Data:** It has no mapping for `CloudAppEvents`, `EmailEvents` or `UrlClickEvents`, and it cannot be given one by a field mapping, because the fields those rules match on (`Operation`, `Parameters`, `CommunicationType`, `SenderDisplayName`) are not top-level columns. They are keys inside the `RawEventData` dynamic column, reachable only by `parse_json` and `mv-apply`, which is what the hand-written KQL does.
+1. **Microsoft 365 Data:** It has no mapping for `CloudAppEvents`, `EmailEvents` or `UrlClickEvents`, and it cannot be given one by a field mapping, because the fields those rules match on (`Operation`, `Parameters`, `CommunicationType`, `SenderDisplayName`) are not top-level columns. They are keys inside the `RawEventData` dynamic column, reachable only by `parse_json`, which is what the hand-written KQL does.
 2. **Specific Endpoint Categories:** It also lacks out-of-the-box mappings for the `process_access` and `logon` Sigma categories without resorting to complex join conditions that pySigma cannot safely infer.
 
 The Sigma rules keep the native field names and categories so they stay portable to other backends (like Splunk or Elastic). The skip is enforced in code and printed on every run rather than left as a silent warning, with the hand-written `detection.kql` remaining the deployable artefact.

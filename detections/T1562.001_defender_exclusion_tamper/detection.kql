@@ -1,69 +1,40 @@
-// Defender exclusion added or tamper protection disabled
-// Platform : Microsoft Defender XDR - Advanced Hunting
-// Table    : DeviceRegistryEvents
-// ATT&CK   : T1562.001 (Impair Defenses: Disable or Modify Tools)
-// Author   : Kartekeyaan Raghavan
-//
-// TUNE: Allowed modifiers (e.g. SCCM/Intune) should be allowlisted by signer and path.
+// T1562.001 - Defender Exclusion Added or Tamper Protection Disabled
+// Table: DeviceRegistryEvents
 
 let lookback = 30d;
 let AllowedModifiers = dynamic([
-    "c:\\windows\\system32\\svchost.exe",
-    "c:\\windows\\system32\\wininit.exe",
-    "c:\\windows\\system32\\poqexec.exe"
+    @"c:\windows\system32\svchost.exe",
+    @"c:\windows\system32\wininit.exe",
+    @"c:\windows\system32\poqexec.exe"
 ]);
-let ExclusionPaths = dynamic([
-    "\\microsoft\\windows defender\\exclusions\\"
-]);
+let ExclusionPaths = dynamic([@"\microsoft\windows defender\exclusions\"]);
 let TamperKeys = dynamic([
-    "\\microsoft\\windows defender\\features\\tamperprotection",
-    "\\microsoft\\windows defender\\real-time protection\\disablerealtimemonitoring",
-    "\\microsoft\\windows defender\\real-time protection\\disablebehaviormonitoring",
-    "\\microsoft\\windows defender\\real-time protection\\disableonaccessprotection",
-    "\\microsoft\\windows defender\\spynet\\spynetreporting",
-    "\\microsoft\\windows defender\\spynet\\submitsamplesconsent"
+    @"\microsoft\windows defender\features\tamperprotection",
+    @"\microsoft\windows defender\real-time protection\disablerealtimemonitoring",
+    @"\microsoft\windows defender\real-time protection\disablebehaviormonitoring",
+    @"\microsoft\windows defender\real-time protection\disableonaccessprotection",
+    @"\microsoft\windows defender\spynet\spynetreporting",
+    @"\microsoft\windows defender\spynet\submitsamplesconsent"
 ]);
 
 DeviceRegistryEvents
 | where Timestamp > ago(lookback)
 | where ActionType in~ ("RegistryValueSet", "RegistryKeyCreated")
-| extend KeyLower = tolower(RegistryKey)
+| extend KeyLower = tolower(RegistryKey), ModifyingProcess = tolower(InitiatingProcessFolderPath)
 | where KeyLower has_any (ExclusionPaths) or KeyLower has_any (TamperKeys)
-| extend ModifyingProcess = tolower(InitiatingProcessFolderPath)
 | where not(ModifyingProcess in~ (AllowedModifiers))
-| extend IsExclusion = KeyLower has_any (ExclusionPaths)
-| extend IsTamper = KeyLower has_any (TamperKeys)
-| extend IsDisabling = tostring(RegistryValueData) in ("0", "1") // often 1 disables real-time monitoring, 0 disables tamper protection
-| extend Unsigned = isempty(InitiatingProcessSignerType) or InitiatingProcessSignerType == "None"
-| extend UserWritable = ModifyingProcess has_any (@"\appdata\", @"\users\public\", @"\downloads\", @"\temp\")
-| extend SuspiciousActor = InitiatingProcessFileName in~ ("powershell.exe", "pwsh.exe", "cmd.exe", "reg.exe")
+| extend
+    IsTamper        = KeyLower has_any (TamperKeys),
+    Unsigned        = isempty(InitiatingProcessSignerType) or InitiatingProcessSignerType == "None",
+    UserWritable    = ModifyingProcess has_any (@"\appdata\", @"\users\public\", @"\downloads\", @"\temp\"),
+    SuspiciousActor = InitiatingProcessFileName in~ ("powershell.exe", "pwsh.exe", "cmd.exe", "reg.exe")
 | extend RiskScore = 60
-      + iff(IsTamper, 20, 0)
-      + iff(Unsigned, 20, 0)
-      + iff(SuspiciousActor, 30, 0)
-      + iff(UserWritable, 30, 0)
+    + iff(IsTamper, 20, 0)
+    + iff(Unsigned, 20, 0)
+    + iff(SuspiciousActor, 30, 0)
+    + iff(UserWritable, 30, 0)
 | extend Severity = case(RiskScore >= 90, "High", RiskScore >= 60, "Medium", "Low")
-| project 
-    Timestamp, Severity, RiskScore, DeviceName, ActionType,
-    Account = InitiatingProcessAccountName,
-    Actor = InitiatingProcessFileName,
-    ActorPath = InitiatingProcessFolderPath,
-    CommandLine = InitiatingProcessCommandLine,
-    RegistryKey,
-    RegistryValueName,
-    RegistryValueData,
-    IsExclusion, IsTamper,
-    ReportId, DeviceId
+| project Timestamp, Severity, RiskScore, DeviceName, ActionType,
+          Account = InitiatingProcessAccountName, Actor = InitiatingProcessFileName,
+          ActorPath = InitiatingProcessFolderPath, RegistryKey, RegistryValueData
 | order by RiskScore desc, Timestamp desc
-
-// =====================================================================================
-// BASELINE: Identify frequent benign modifiers of Defender settings
-// =====================================================================================
-//
-// DeviceRegistryEvents
-// | where Timestamp > ago(30d)
-// | where ActionType in~ ("RegistryValueSet", "RegistryKeyCreated")
-// | extend KeyLower = tolower(RegistryKey)
-// | where KeyLower has_any (ExclusionPaths) or KeyLower has_any (TamperKeys)
-// | summarize Modifications = count(), Devices = dcount(DeviceId) by InitiatingProcessFolderPath, InitiatingProcessSignerType
-// | order by Devices desc

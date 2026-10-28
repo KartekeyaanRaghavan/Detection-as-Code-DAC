@@ -1,59 +1,29 @@
-// Scheduled task persistence via schtasks.exe
-// Platform : Microsoft Defender XDR - Advanced Hunting
-// Table    : DeviceProcessEvents
-// ATT&CK   : T1053.005 (Scheduled Task/Job: Scheduled Task)
-// Author   : Kartekeyaan Raghavan
-//
-// TUNE: Add legitimate scheduled task creators (e.g. software updaters) to AllowedParents.
+// T1053.005 - Scheduled Task Persistence via schtasks.exe
+// Table: DeviceProcessEvents
 
 let lookback = 30d;
-let AllowedParents = dynamic([
-    "msiexec.exe",
-    "googleupdate.exe",
-    "tiworker.exe"
-]);
+let AllowedParents = dynamic(["msiexec.exe", "googleupdate.exe", "tiworker.exe"]);
 let UserWritable = dynamic([@"\appdata\", @"\users\public\", @"\downloads\", @"\temp\", @"\programdata\"]);
 let SuspiciousTasks = dynamic([
-    "powershell", "pwsh", "cmd.exe", "wscript", "cscript", 
-    "regsvr32", "rundll32", "mshta", "bitsadmin", "certutil",
-    "http://", "https://"
+    "powershell", "pwsh", "cmd.exe", "wscript", "cscript",
+    "regsvr32", "rundll32", "mshta", "bitsadmin", "certutil", "http://", "https://"
 ]);
 
 DeviceProcessEvents
 | where Timestamp > ago(lookback)
-| where tolower(FileName) == "schtasks.exe"
-| where tolower(ProcessCommandLine) has_any ("/create", "-create")
-| where not(tolower(InitiatingProcessFileName) in~ (AllowedParents))
-| extend CmdLineLower = tolower(ProcessCommandLine)
-| extend ParentPath = tolower(InitiatingProcessFolderPath)
-| extend FromUserWritable = ParentPath has_any (UserWritable)
-| extend CallsSuspiciousBinary = CmdLineLower has_any (SuspiciousTasks)
-| extend UnsignedParent = isempty(InitiatingProcessSignerType) or InitiatingProcessSignerType == "None"
-| extend IsSystem = tolower(AccountName) in ("system", "local service", "network service")
-// If the task creates persistence as SYSTEM but was initiated by a standard user context, that's high risk
+| where FileName =~ "schtasks.exe"
+| where ProcessCommandLine has_any ("/create", "-create")
+| where not(InitiatingProcessFileName in~ (AllowedParents))
+| extend
+    FromUserWritable      = tolower(InitiatingProcessFolderPath) has_any (UserWritable),
+    CallsSuspiciousBinary = tolower(ProcessCommandLine) has_any (SuspiciousTasks),
+    UnsignedParent        = isempty(InitiatingProcessSignerType) or InitiatingProcessSignerType == "None"
 | extend RiskScore = 40
-      + iff(FromUserWritable, 30, 0)
-      + iff(CallsSuspiciousBinary, 40, 0)
-      + iff(UnsignedParent, 20, 0)
+    + iff(FromUserWritable, 30, 0)
+    + iff(CallsSuspiciousBinary, 40, 0)
+    + iff(UnsignedParent, 20, 0)
 | extend Severity = case(RiskScore >= 90, "High", RiskScore >= 60, "Medium", "Low")
-| project 
-    Timestamp, Severity, RiskScore, DeviceName,
-    Account = AccountName,
-    Actor = InitiatingProcessFileName,
-    ActorPath = InitiatingProcessFolderPath,
-    ActorSigner = InitiatingProcessSignerType,
-    CommandLine = ProcessCommandLine,
-    FromUserWritable, CallsSuspiciousBinary, UnsignedParent,
-    ReportId, DeviceId
+| project Timestamp, Severity, RiskScore, DeviceName, Account = AccountName,
+          Actor = InitiatingProcessFileName, ActorPath = InitiatingProcessFolderPath,
+          CommandLine = ProcessCommandLine
 | order by RiskScore desc, Timestamp desc
-
-// =====================================================================================
-// BASELINE: Identify frequent task creators
-// =====================================================================================
-//
-// DeviceProcessEvents
-// | where Timestamp > ago(30d)
-// | where tolower(FileName) == "schtasks.exe"
-// | where tolower(ProcessCommandLine) has_any ("/create", "-create")
-// | summarize Executions = count(), Devices = dcount(DeviceId) by InitiatingProcessFileName, InitiatingProcessSignerType
-// | order by Devices desc

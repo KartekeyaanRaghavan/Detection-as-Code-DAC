@@ -1,114 +1,48 @@
-// External Teams contact to a user who was just mail bombed
-// Platform : Microsoft Defender XDR - Advanced Hunting
-// Tables   : EmailEvents, CloudAppEvents
-// ATT&CK   : T1656 (Impersonation), T1585.002, leading to T1219
-// Author   : Kartekeyaan Raghavan
-//
-// TUNE: TrustedSupportTenants must list any federated tenant that legitimately provides your
-// users with support, or every genuine MSP contact will fire.
+// T1656 - External Teams Contact to a User Who Was Just Mail-Bombed
+// Tables: EmailEvents, CloudAppEvents
 
-let lookback              = 30d;
-let BombWindow            = 1h;     // window over which the mail flood is counted
-let CorrelationWindow     = 8h;     // how long after the flood the Teams contact still correlates
-let BombThreshold         = 40;     // inbound mails from distinct senders inside BombWindow
-let DistinctSenderDomains = 15;     // the flood comes from many unrelated services
-let TrustedSupportTenants = dynamic([]);   // TUNE e.g. ["msp.example.com"]
-let SupportPersona        = dynamic([
+let lookback = 30d;
+let BombWindow = 1h;
+let CorrelationWindow = 8h;
+let BombThreshold = 40;
+let DistinctSenderDomains = 15;
+let TrustedSupportTenants = dynamic([]);
+let SupportPersona = dynamic([
     "help desk", "helpdesk", "it support", "it desk", "service desk",
-    "support team", "technical support", "security team", "it team",
-    "microsoft support", "office 365 support"
+    "support team", "technical support", "security team", "it team", "microsoft support"
 ]);
-//
-// --- stage 1: mailbox flooding ---------------------------------------------------------
-let mailBombs =
-    EmailEvents
-    | where Timestamp > ago(lookback)
-    | where EmailDirection == "Inbound"
-    | summarize
-        MailCount     = count(),
-        SenderDomains = dcount(SenderFromDomain),
-        SampleSenders = make_set(SenderFromDomain, 12),
-        BombStart     = min(Timestamp),
-        BombEnd       = max(Timestamp)
-      by RecipientEmailAddress, bin(Timestamp, BombWindow)
-    | where MailCount >= BombThreshold and SenderDomains >= DistinctSenderDomains
-    | project RecipientEmailAddress, BombStart, BombEnd, MailCount, SenderDomains, SampleSenders;
-//
-// --- stage 2: external Teams contact ----------------------------------------------------
-let externalChats =
-    CloudAppEvents
-    | where Timestamp > ago(lookback)
-    | where Application has "Teams"
-    | where ActionType in ("ChatCreated", "MessageSent", "MemberAdded")
-    | extend Raw = parse_json(RawEventData)
-    | extend
-        CommunicationType = tostring(Raw.CommunicationType),
-        SenderUpn         = tostring(Raw.SenderUPN),
-        SenderDisplay     = tolower(tostring(Raw.SenderDisplayName)),
-        RecipientUpn      = tostring(Raw.ParticipantInfo.ParticipatingSIPs)
-    | where CommunicationType =~ "ExternalFederated"
-    | extend SenderDomain = tolower(tostring(split(SenderUpn, "@")[1]))
-    | where not(SenderDomain in (TrustedSupportTenants))
-    | project ChatTime = Timestamp, SenderUpn, SenderDomain, SenderDisplay,
-              RecipientEmailAddress = tolower(RecipientUpn), ChatAction = ActionType, ReportId;
-//
-// --- correlate --------------------------------------------------------------------------
+
+let mailBombs = EmailEvents
+| where Timestamp > ago(lookback) and EmailDirection == "Inbound"
+| summarize MailCount = count(), SenderDomains = dcount(SenderFromDomain),
+            BombStart = min(Timestamp), BombEnd = max(Timestamp)
+  by RecipientEmailAddress, bin(Timestamp, BombWindow)
+| where MailCount >= BombThreshold and SenderDomains >= DistinctSenderDomains;
+
+let externalChats = CloudAppEvents
+| where Timestamp > ago(lookback) and Application has "Teams"
+| where ActionType in ("ChatCreated", "MessageSent", "MemberAdded")
+| extend Raw = parse_json(RawEventData)
+| where tostring(Raw.CommunicationType) =~ "ExternalFederated"
+| extend
+    SenderUpn     = tostring(Raw.SenderUPN),
+    SenderDisplay = tolower(tostring(Raw.SenderDisplayName)),
+    SenderDomain  = tolower(tostring(split(tostring(Raw.SenderUPN), "@")[1])),
+    RecipientEmailAddress = tolower(tostring(Raw.ParticipantInfo.ParticipatingSIPs))
+| where not(SenderDomain in (TrustedSupportTenants))
+| project ChatTime = Timestamp, SenderUpn, SenderDomain, SenderDisplay, RecipientEmailAddress;
+
 mailBombs
 | join kind=inner externalChats on RecipientEmailAddress
 | where ChatTime between (BombStart .. (BombEnd + CorrelationWindow))
 | extend
     ImpersonatesSupport = SenderDisplay has_any (SupportPersona),
     MinutesAfterBomb    = datetime_diff('minute', ChatTime, BombEnd)
-| extend RiskScore =
-        60                                                    // the correlation itself
-      + iff(ImpersonatesSupport, 30, 0)
-      + iff(MinutesAfterBomb <= 60, 20, 0)                  // arrives while the user is still flooded
-      + iff(MailCount >= 150, 10, 0)
+| extend RiskScore = 60
+    + iff(ImpersonatesSupport, 30, 0)
+    + iff(MinutesAfterBomb <= 60, 20, 0)
+    + iff(MailCount >= 150, 10, 0)
 | extend Severity = case(RiskScore >= 90, "High", RiskScore >= 60, "Medium", "Low")
-| project
-    Severity, RiskScore,
-    Victim            = RecipientEmailAddress,
-    BombStart, BombEnd, MailCount, SenderDomains, SampleSenders,
-    ChatTime, MinutesAfterBomb,
-    ExternalSender    = SenderUpn,
-    SenderTenant      = SenderDomain,
-    SenderDisplayName = SenderDisplay,
-    ImpersonatesSupport,
-    ReportId
+| project Severity, RiskScore, Victim = RecipientEmailAddress, MailCount, SenderDomains,
+          ChatTime, MinutesAfterBomb, ExternalSender = SenderUpn, SenderDisplayName = SenderDisplay
 | order by RiskScore desc, ChatTime desc
-
-
-// =====================================================================================
-// FOLLOW ON: did the victim then run remote access software
-//
-// This is the payload of the whole sequence. A hit here escalates the incident from
-// attempted social engineering to a live hands on keyboard intrusion. Cross reference
-// with the T1219 detection in this repository.
-// =====================================================================================
-//
-// let victim = "user@contoso.com";
-// let chatTime = datetime(2026-09-01T00:00:00Z);
-// DeviceProcessEvents
-// | where Timestamp between (chatTime .. (chatTime + 4h))
-// | where AccountUpn =~ victim
-// | where FileName in~ ("quickassist.exe", "msra.exe", "ScreenConnect.WindowsClient.exe",
-//                       "AnyDesk.exe", "TeamViewer.exe", "RustDesk.exe")
-// | project Timestamp, DeviceName, FileName, FolderPath, ProcessCommandLine,
-//           InitiatingProcessFileName
-
-
-// =====================================================================================
-// BASELINE: what does normal external Teams traffic look like in your tenant
-//
-// Run before deploying. If your tenant federates widely, raise BombThreshold rather than
-// loosening the correlation window, because the window is the precision.
-// =====================================================================================
-//
-// CloudAppEvents
-// | where Timestamp > ago(30d)
-// | where Application has "Teams"
-// | extend Raw = parse_json(RawEventData)
-// | where tostring(Raw.CommunicationType) =~ "ExternalFederated"
-// | summarize Chats = count(), Recipients = dcount(tostring(Raw.SenderUPN))
-//     by SenderDomain = tolower(tostring(split(tostring(Raw.SenderUPN), "@")[1]))
-// | order by Chats desc

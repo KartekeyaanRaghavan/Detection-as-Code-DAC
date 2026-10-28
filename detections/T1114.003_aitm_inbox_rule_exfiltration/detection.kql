@@ -1,114 +1,41 @@
-// Mailbox rule created to forward or hide mail after account compromise
-// Platform : Microsoft Defender XDR - Advanced Hunting
-// Table    : CloudAppEvents (Exchange Online admin/mailbox audit surfaced via Defender)
-// ATT&CK   : T1114.003 (Email Forwarding Rule), T1564.008 (Email Hiding Rules)
-// Author   : Kartekeyaan Raghavan
-//
-// TUNING: replace the values in AcceptedDomains with your tenant's accepted domains before use.
-// Everything else is intended to run unmodified.
+// T1114.003 - Mailbox Rule Created to Forward or Hide Mail After Compromise
+// Table: CloudAppEvents (Exchange Online audit records in RawEventData JSON)
 
-let lookback          = 30d;
-let AcceptedDomains   = dynamic(["contoso.com", "contoso.onmicrosoft.com"]);   // TUNE
+let lookback = 30d;
+let AcceptedDomains = dynamic(["contoso.com", "contoso.onmicrosoft.com"]);
 let SuppressionFolders = dynamic([
     "RSS Feeds", "RSS Subscriptions", "Conversation History",
     "Deleted Items", "Junk Email", "Archive", "Notes", "Sync Issues"
 ]);
-// Keyword sets an operator uses to intercept payment / credential correspondence.
 let HighRiskKeywords = dynamic([
     "invoice", "payment", "remittance", "wire", "bank", "swift", "iban",
-    "purchase order", "po ", "vendor", "supplier",
-    "password", "verify", "mfa", "authenticator", "one-time", "otp",
-    "phish", "suspicious", "security alert", "helpdesk"
+    "purchase order", "vendor", "supplier", "password", "verify", "mfa", "otp"
 ]);
+
 CloudAppEvents
 | where Timestamp > ago(lookback)
 | where ActionType in ("New-InboxRule", "Set-InboxRule", "UpdateInboxRules")
 | extend Raw = parse_json(RawEventData)
-// Exchange audit records carry the rule definition as a Parameters array of {Name, Value}.
-| mv-apply Param = Raw.Parameters on (
-    summarize ParamBag = make_bag(pack(tostring(Param.Name), tostring(Param.Value)))
-  )
+| extend Params = Raw.Parameters
 | extend
-    RuleName             = tostring(ParamBag["Name"]),
-    ForwardTo            = tostring(ParamBag["ForwardTo"]),
-    ForwardAsAttachmentTo = tostring(ParamBag["ForwardAsAttachmentTo"]),
-    RedirectTo           = tostring(ParamBag["RedirectTo"]),
-    MoveToFolder         = tostring(ParamBag["MoveToFolder"]),
-    DeleteMessage        = tostring(ParamBag["DeleteMessage"]),
-    MarkAsRead           = tostring(ParamBag["MarkAsRead"]),
-    StopProcessingRules  = tostring(ParamBag["StopProcessingRules"]),
-    SubjectContainsWords = tostring(ParamBag["SubjectContainsWords"]),
-    BodyContainsWords    = tostring(ParamBag["BodyContainsWords"]),
-    SubjectOrBodyWords   = tostring(ParamBag["SubjectOrBodyContainsWords"]),
-    FromAddressContains  = tostring(ParamBag["FromAddressContainsWords"])
-| extend ForwardTarget = tolower(strcat(ForwardTo, " ", ForwardAsAttachmentTo, " ", RedirectTo))
-| extend KeywordBlob   = tolower(strcat(SubjectContainsWords, " ", BodyContainsWords, " ",
-                                        SubjectOrBodyWords, " ", FromAddressContains))
-//
-// --- signal 1: mail leaves the tenant -------------------------------------------------
-| extend ForwardsExternally =
-        isnotempty(trim(" ", ForwardTarget))
-        and not(ForwardTarget has_any (AcceptedDomains))
-//
-// --- signal 2: mail is hidden from the mailbox owner -----------------------------------
-| extend SuppressesMail =
-        MoveToFolder in~ (SuppressionFolders)
-        or DeleteMessage =~ "True"
-//
-// --- signal 3: the rule is scoped to money or security correspondence -------------------
-| extend TargetsHighRiskKeywords = KeywordBlob has_any (HighRiskKeywords)
-//
+    RuleName      = tostring(Params.Name),
+    ForwardTarget = tolower(strcat(tostring(Params.ForwardTo), " ", tostring(Params.ForwardAsAttachmentTo), " ", tostring(Params.RedirectTo))),
+    MoveToFolder  = tostring(Params.MoveToFolder),
+    DeleteMessage = tostring(Params.DeleteMessage),
+    MarkAsRead    = tostring(Params.MarkAsRead),
+    KeywordBlob   = tolower(strcat(tostring(Params.SubjectContainsWords), " ", tostring(Params.BodyContainsWords), " ", tostring(Params.SubjectOrBodyContainsWords)))
+| extend
+    ForwardsExternally      = isnotempty(trim(" ", ForwardTarget)) and not(ForwardTarget has_any (AcceptedDomains)),
+    SuppressesMail          = MoveToFolder in~ (SuppressionFolders) or DeleteMessage =~ "True",
+    TargetsHighRiskKeywords = KeywordBlob has_any (HighRiskKeywords)
 | where ForwardsExternally or SuppressesMail
 | extend RiskScore =
-        iff(ForwardsExternally, 50, 0)
-      + iff(SuppressesMail, 30, 0)
-      + iff(TargetsHighRiskKeywords, 20, 0)
-      + iff(MarkAsRead =~ "True", 10, 0)
-      + iff(isempty(trim(" ", RuleName)) or RuleName in (".", "..", "-", "_", " "), 15, 0)  // unnamed / single-char rules
+      iff(ForwardsExternally, 50, 0)
+    + iff(SuppressesMail, 30, 0)
+    + iff(TargetsHighRiskKeywords, 20, 0)
+    + iff(MarkAsRead =~ "True", 10, 0)
+    + iff(isempty(trim(" ", RuleName)) or RuleName in (".", "..", "-", "_"), 15, 0)
 | extend Severity = case(RiskScore >= 80, "High", RiskScore >= 50, "Medium", "Low")
-| project
-    Timestamp,
-    Severity,
-    RiskScore,
-    Actor          = AccountDisplayName,
-    ActorUpn       = AccountId,
-    TargetMailbox  = tostring(Raw.ObjectId),
-    IPAddress,
-    RuleName,
-    ForwardTarget,
-    MoveToFolder,
-    DeleteMessage,
-    MarkAsRead,
-    StopProcessingRules,
-    KeywordBlob,
-    ForwardsExternally,
-    SuppressesMail,
-    TargetsHighRiskKeywords,
-    ReportId
+| project Timestamp, Severity, RiskScore, Actor = AccountDisplayName, IPAddress,
+          RuleName, ForwardTarget, MoveToFolder, DeleteMessage, KeywordBlob
 | order by RiskScore desc, Timestamp desc
-
-
-// =====================================================================================
-// ENRICHMENT: tie the rule creation back to the session that created it.
-//
-// Run this separately when triaging a hit above. AiTM token replay frequently produces
-// NO risky sign-in, so the absence of a suspicious sign-in does NOT clear the alert.
-// What you are looking for is a sign-in from an IP, ASN or user agent that differs from
-// the user's own baseline in the hours before the rule appeared.
-// =====================================================================================
-//
-// let ruleTime = datetime(2026-09-01T00:00:00Z);        // timestamp from the hit above
-// let subject  = "user@contoso.com";                     // ActorUpn from the hit above
-// AADSignInEventsBeta
-// | where Timestamp between ((ruleTime - 12h) .. ruleTime)
-// | where AccountUpn =~ subject
-// | summarize
-//     SignIns      = count(),
-//     Countries    = make_set(Country, 10),
-//     IPs          = make_set(IPAddress, 20),
-//     UserAgents   = make_set(UserAgent, 10),
-//     ASNs         = make_set(ISP, 10),
-//     FirstSeen    = min(Timestamp),
-//     LastSeen     = max(Timestamp)
-//   by ErrorCode
-// | order by LastSeen desc

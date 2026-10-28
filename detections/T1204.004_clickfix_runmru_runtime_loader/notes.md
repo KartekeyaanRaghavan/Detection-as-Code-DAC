@@ -5,7 +5,7 @@
 | **ATT&CK** | T1204.004 Malicious Copy and Paste, T1059.001, T1105, T1543.003 |
 | **Tactic** | Execution, Command and Control, Persistence |
 | **Data source** | `DeviceRegistryEvents`, `DeviceProcessEvents` (Defender for Endpoint) |
-| **Status** | Query A validated against fixtures. Queries B and C documented, not yet fixture-tested |
+| **Status** | Validated against synthetic events, see `validation.md` |
 
 ## What are we looking for?
 

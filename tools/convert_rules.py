@@ -9,7 +9,7 @@ Device* endpoint tables. It has no mapping for the Microsoft 365 tables this rep
 also targets - CloudAppEvents, EmailEvents, UrlClickEvents - and it cannot be given one
 by a field mapping, because the fields those rules match on (Operation, Parameters,
 CommunicationType, SenderDisplayName) are not columns. They are keys inside the
-RawEventData dynamic column, reachable only by parse_json and mv-apply.
+RawEventData dynamic column, reachable only by parse_json.
 
 So the m365 rules are converted by hand and their KQL is the artefact of record. They are
 skipped here deliberately and loudly, rather than silently passing. Every other rule MUST
@@ -61,7 +61,7 @@ def main() -> int:
             continue
 
         result = subprocess.run(
-            ["sigma", "convert", "-t", TARGET, "-p", PIPELINE, str(path)],
+            [sys.executable, "-m", "sigma.cli.main", "convert", "-t", TARGET, "-p", PIPELINE, str(path)],
             capture_output=True, text=True,
         )
         if result.returncode != 0:

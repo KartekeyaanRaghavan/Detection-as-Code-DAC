@@ -1,24 +1,13 @@
-// LSASS process memory access
-// Platform : Microsoft Defender XDR - Advanced Hunting
-// Table    : DeviceEvents
-// ATT&CK   : T1003.001 (OS Credential Dumping: LSASS Memory)
-// Author   : Kartekeyaan Raghavan
-//
-// TUNE: AllowedAccessors must reflect the endpoint security, inventory, and management
-// tooling deployed in your organisation.
+// T1003.001 - LSASS Process Memory Access
+// Table: DeviceEvents
 
 let lookback = 30d;
-let AllowedAccessors = dynamic([
-    "msense.exe", "mpcmdrun.exe", "msmpeng.exe",
-    "kavfs.exe", "csfalconservice.exe", "cyserver.exe"
-]); // TUNE
+let AllowedAccessors = dynamic(["msense.exe", "mpcmdrun.exe", "msmpeng.exe", "kavfs.exe", "csfalconservice.exe", "cyserver.exe"]);
 let TargetNames = dynamic(["lsass.exe", "lsass"]);
 let UserWritable = dynamic([@"\appdata\", @"\users\public\", @"\downloads\", @"\temp\", @"\programdata\"]);
 let SuspiciousNames = dynamic([
-    "procdump.exe", "procdump64.exe", "mimikatz.exe",
-    "taskmgr.exe", "rundll32.exe", "powershell.exe",
-    "pwsh.exe", "cmd.exe", "wscript.exe", "cscript.exe",
-    "msbuild.exe", "regsvr32.exe"
+    "procdump.exe", "procdump64.exe", "mimikatz.exe", "taskmgr.exe", "rundll32.exe",
+    "powershell.exe", "pwsh.exe", "cmd.exe", "wscript.exe", "cscript.exe", "msbuild.exe", "regsvr32.exe"
 ]);
 
 DeviceEvents
@@ -28,49 +17,17 @@ DeviceEvents
 | where not(tolower(InitiatingProcessFileName) in~ (AllowedAccessors))
 | extend Path = tolower(InitiatingProcessFolderPath)
 | extend
-    FromUserWritable = Path has_any (UserWritable),
+    FromUserWritable  = Path has_any (UserWritable),
     HasSuspiciousName = tolower(InitiatingProcessFileName) in~ (SuspiciousNames),
-    IsSystemLocation = Path startswith @"c:\windows\system32\" or Path startswith @"c:\windows\syswow64\",
-    Unsigned = isempty(InitiatingProcessSignerType) or InitiatingProcessSignerType == "None"
+    IsSystemLocation  = Path startswith @"c:\windows\system32\" or Path startswith @"c:\windows\syswow64\",
+    Unsigned          = isempty(InitiatingProcessSignerType) or InitiatingProcessSignerType == "None"
 | extend RiskScore =
-        iff(FromUserWritable, 40, 0)
-      + iff(HasSuspiciousName, 35, 0)
-      + iff(not(IsSystemLocation), 25, 0)
-      + iff(Unsigned, 30, 0)
+      iff(FromUserWritable, 40, 0)
+    + iff(HasSuspiciousName, 35, 0)
+    + iff(not(IsSystemLocation), 25, 0)
+    + iff(Unsigned, 30, 0)
 | extend Severity = case(RiskScore >= 90, "High", RiskScore >= 50, "Medium", "Low")
-| project
-    Timestamp, Severity, RiskScore, DeviceName, ActionType,
-    Account            = InitiatingProcessAccountName,
-    Accessor           = InitiatingProcessFileName,
-    AccessorPath       = InitiatingProcessFolderPath,
-    CommandLine        = InitiatingProcessCommandLine,
-    Target             = FileName,
-    FromUserWritable, HasSuspiciousName, IsSystemLocation, Unsigned,
-    ReportId, DeviceId
+| project Timestamp, Severity, RiskScore, DeviceName, ActionType,
+          Account = InitiatingProcessAccountName, Accessor = InitiatingProcessFileName,
+          AccessorPath = InitiatingProcessFolderPath, CommandLine = InitiatingProcessCommandLine
 | order by RiskScore desc, Timestamp desc
-
-
-// =====================================================================================
-// ENRICHMENT: Did the accessor write a dump file?
-// =====================================================================================
-//
-// let target = "lab-win11-01";
-// DeviceFileEvents
-// | where Timestamp > ago(7d)
-// | where DeviceName =~ target
-// | where ActionType == "FileCreated"
-// | where FolderPath endswith ".dmp" or FolderPath endswith ".txt" or FolderPath endswith ".log"
-// | summarize DumpFiles = make_set(FolderPath) by InitiatingProcessFileName, InitiatingProcessCommandLine
-
-// =====================================================================================
-// BASELINE: run this before deploying
-// =====================================================================================
-//
-// DeviceEvents
-// | where Timestamp > ago(30d)
-// | where ActionType in~ ("ProcessAccessed", "ReadProcessMemoryApiCall", "OpenProcessApiCall")
-// | where tolower(FileName) in~ (TargetNames)
-// | summarize Executions = count(), Devices = dcount(DeviceId),
-//             Paths = make_set(InitiatingProcessFolderPath, 15)
-//     by InitiatingProcessFileName
-// | order by Devices desc

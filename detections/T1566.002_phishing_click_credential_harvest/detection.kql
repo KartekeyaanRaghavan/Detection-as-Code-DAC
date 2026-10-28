@@ -1,106 +1,47 @@
-// User clicked through to a credential harvesting page from a non prevalent sender
-// Platform : Microsoft Defender XDR - Advanced Hunting
-// Tables   : UrlClickEvents, EmailEvents, AADSignInEventsBeta
-// ATT&CK   : T1566.002 (Spearphishing Link), leading to T1078.004
-// Author   : Kartekeyaan Raghavan
-//
-// TUNE: SimulationSenders must list your phishing simulation infrastructure. Without it,
-// awareness training will be the overwhelming majority of this rule's output.
+// T1566.002 - Phishing Click to Credential Harvesting Page from Unknown Sender
+// Tables: UrlClickEvents, EmailEvents
 
-let lookback           = 14d;
-let PrevalenceWindow   = 90d;   // history used to decide whether a sender is known
-let PrevalenceFloor    = 5;     // mails from this sender domain over the window to count as known
-let SignInWindow       = 30m;   // how long after the click a sign in still correlates
-let SimulationSenders  = dynamic([]);      // TUNE e.g. ["attacksimulation.contoso.com"]
+let lookback = 14d;
+let PrevalenceWindow = 90d;
+let PrevalenceFloor = 5;
+let SimulationSenders = dynamic([]);
 let CredentialKeywords = dynamic([
     "login", "signin", "sign-in", "auth", "verify", "verification", "secure",
     "account", "password", "portal", "office", "microsoft", "owa", "sso", "mfa"
 ]);
-//
-// --- sender prevalence baseline ---------------------------------------------------------
-let knownSenders =
-    EmailEvents
-    | where Timestamp > ago(PrevalenceWindow)
-    | where EmailDirection == "Inbound"
-    | summarize MailsFromDomain = count() by SenderFromDomain
-    | where MailsFromDomain >= PrevalenceFloor
-    | project SenderFromDomain;
-//
-// --- clicks that were not blocked ---------------------------------------------------------
-let clicks =
-    UrlClickEvents
-    | where Timestamp > ago(lookback)
-    | where ActionType !in ("ClickBlocked", "ClickBlockedByTenantPolicy")
-    | where IsClickedThrough == true or ActionType == "ClickAllowed"
-    | project ClickTime = Timestamp, AccountUpn, Url, ClickAction = ActionType,
-              NetworkMessageId, UrlChain, ClickReportId = ReportId;
-//
-// --- the mail the click came from ----------------------------------------------------------
-let mails =
-    EmailEvents
-    | where Timestamp > ago(lookback)
-    | where EmailDirection == "Inbound"
-    | project NetworkMessageId, MailTime = Timestamp, SenderFromAddress, SenderFromDomain,
-              Subject, UrlCount, AttachmentCount, DeliveryAction, ThreatTypes;
-//
+
+let knownSenders = EmailEvents
+| where Timestamp > ago(PrevalenceWindow) and EmailDirection == "Inbound"
+| summarize MailsFromDomain = count() by SenderFromDomain
+| where MailsFromDomain >= PrevalenceFloor
+| project SenderFromDomain;
+
+let clicks = UrlClickEvents
+| where Timestamp > ago(lookback)
+| where ActionType !in ("ClickBlocked", "ClickBlockedByTenantPolicy")
+| where IsClickedThrough == true or ActionType == "ClickAllowed"
+| project ClickTime = Timestamp, AccountUpn, Url, ClickAction = ActionType, NetworkMessageId;
+
+let mails = EmailEvents
+| where Timestamp > ago(lookback) and EmailDirection == "Inbound"
+| project NetworkMessageId, MailTime = Timestamp, SenderFromAddress, SenderFromDomain,
+          Subject, UrlCount, DeliveryAction;
+
 clicks
 | join kind=inner mails on NetworkMessageId
 | where not(SenderFromDomain in (SimulationSenders))
-| join kind=leftanti knownSenders on SenderFromDomain          // sender has no history with us
+| join kind=leftanti knownSenders on SenderFromDomain
 | extend
-    LandsOnAuthPage  = tolower(Url) has_any (CredentialKeywords),
-    ManyUrls         = UrlCount >= 8,
-    Delivered        = DeliveryAction =~ "Delivered",
-    MinutesToClick   = datetime_diff('minute', ClickTime, MailTime)
-| extend RiskScore =
-        40                                                    // unknown sender, click not blocked
-      + iff(LandsOnAuthPage, 30, 0)
-      + iff(Delivered, 15, 0)
-      + iff(ManyUrls, 10, 0)
-      + iff(MinutesToClick <= 10, 15, 0)                    // clicked almost immediately
+    LandsOnAuthPage = tolower(Url) has_any (CredentialKeywords),
+    ManyUrls        = UrlCount >= 8,
+    Delivered       = DeliveryAction =~ "Delivered",
+    MinutesToClick  = datetime_diff('minute', ClickTime, MailTime)
+| extend RiskScore = 40
+    + iff(LandsOnAuthPage, 30, 0)
+    + iff(Delivered, 15, 0)
+    + iff(ManyUrls, 10, 0)
+    + iff(MinutesToClick <= 10, 15, 0)
 | extend Severity = case(RiskScore >= 85, "High", RiskScore >= 55, "Medium", "Low")
-| project
-    ClickTime, Severity, RiskScore,
-    User        = AccountUpn,
-    Sender      = SenderFromAddress,
-    SenderDomain = SenderFromDomain,
-    Subject,
-    Url,
-    ClickAction, DeliveryAction, UrlCount, MinutesToClick,
-    LandsOnAuthPage,
-    NetworkMessageId, ClickReportId
+| project ClickTime, Severity, RiskScore, User = AccountUpn, Sender = SenderFromAddress,
+          SenderDomain = SenderFromDomain, Subject, Url, UrlCount, MinutesToClick
 | order by RiskScore desc, ClickTime desc
-
-
-// =====================================================================================
-// ESCALATION: did a sign in follow the click
-//
-// This is what turns a click into an incident. A successful sign in shortly after the
-// click, particularly from a different IP or ASN than the user's baseline, means the
-// credentials are already in use. Chain straight into the T1114.003 rule in this
-// repository, because the mailbox rule is usually the operator's next move.
-// =====================================================================================
-//
-// let user = "user@contoso.com";
-// let clickTime = datetime(2026-09-01T00:00:00Z);
-// AADSignInEventsBeta
-// | where Timestamp between (clickTime .. (clickTime + 2h))
-// | where AccountUpn =~ user
-// | project Timestamp, ErrorCode, IPAddress, Country, City, ISP, UserAgent,
-//           ClientAppUsed, ConditionalAccessStatus, RiskLevelDuringSignIn
-// | order by Timestamp asc
-
-
-// =====================================================================================
-// BASELINE: how much of this is your own phishing simulation
-//
-// Run before deploying. If awareness training runs monthly, its sending infrastructure
-// will be the single largest contributor to this rule and must go in SimulationSenders.
-// =====================================================================================
-//
-// UrlClickEvents
-// | where Timestamp > ago(90d)
-// | where ActionType !in ("ClickBlocked", "ClickBlockedByTenantPolicy")
-// | join kind=inner (EmailEvents | project NetworkMessageId, SenderFromDomain) on NetworkMessageId
-// | summarize Clicks = count(), Users = dcount(AccountUpn) by SenderFromDomain
-// | order by Clicks desc
